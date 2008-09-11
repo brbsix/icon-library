@@ -57,7 +57,7 @@ class IconLibraryController:
         return
 
     def setup_greeter_gui(self, Theme):
-        """ Greets the user and offer a range of themes to choose from """
+        """ Greets the user and offers a range of themes to choose from """
         align = gtk.Alignment(xalign=0.5, yalign=0.5)
         align2 = gtk.Alignment(xalign=0.5)
         vbox = gtk.VBox()
@@ -122,7 +122,7 @@ class IconLibraryController:
 
     def setup_main_gui(self, Theme, IconDB, Store, Display):
         """ The main gui, home to everything worth while """
-        # TODO: where possible move layout stuff from v/hboxes to gtk.ButtonBox
+        # TODO: where possible transition layout stuff from v/hboxes to gtk.ButtonBox
         vbox = gtk.VBox()
 
         # remove greeter widgets
@@ -205,6 +205,7 @@ class IconLibraryController:
         # make the icon view
         self.mdl2 = Store.get_model2()
         self.view2 = Display.make_view2(self.mdl2)
+        self.view2.connect("button-release-event", self.view2_row_activated_cb)
 
         scroller1.add(self.view1)
         scroller2.add(self.view2)
@@ -243,7 +244,7 @@ class IconLibraryController:
         btm_hbox2.pack_end(color_sel0, False)
         btm_hbox2.show_all()
 
-        # fire off a search to fill icon view on main gui launch
+        # fire off an initial search to fill icon view upon main gui launch
         IconDB.do_search(self.srch_entry)
         return
 
@@ -329,6 +330,33 @@ class IconLibraryController:
         stndrd_only = kw[0].get_active()
         self.IconDB.set_standard_filter(stndrd_only)
         gobject.idle_add(self.IconDB.do_search, self.srch_entry)
+        return
+
+    def view2_row_activated_cb(self, *kw):
+#        for size in self.Theme.get_icon_sizes(ico):
+#            path = self.Theme.lookup_icon(ico, size, 0).get_filename()
+        treeview = kw[0]
+        event = kw[-1]
+        if event.button == 3:
+            popup = gtk.Menu()
+            edit = gtk.ImageMenuItem(gtk.STOCK_EDIT)
+            popup.add(edit)
+            popup.show_all()
+            x = int(event.x)
+            y = int(event.y)
+            time = event.time
+            pthinfo = treeview.get_path_at_pos(x, y)
+            if pthinfo is not None:
+                path, col, cellx, celly = pthinfo
+#                print self.IconDB.results[path[0]][1]
+                treeview.grab_focus()
+                treeview.set_cursor( path, col, 0)
+                popup.popup( None, None, None, event.button, time)
+                return
+        return
+
+    def edit_menu_cb(self, *kw):
+        print "edit menu"
         return
 
     def filter_by_context_cb(self, *kw):
@@ -425,6 +453,7 @@ class IconDatabase:
         self.length = 0
         self.note = None
         self.model = None
+        self.results = None
         self.standard_only = False
         self.ctx_filter = "All Contexts"
         self.NamingSpec = standards.StandardIconNamingSpec()
@@ -502,15 +531,15 @@ class IconDatabase:
                 print inst
                 return False
 
-            results = self.cursor.fetchall()
+            self.results = self.cursor.fetchall()
 
             # feedback basic search stats to the main gui
             if self.note:
-                self.give_feedback(term, len(results))
+                self.give_feedback(term, len(self.results))
 
             # start the ListDisplayer thread
             self.model.clear()
-            displayer = ListDisplayer(results, self.pb_cache, self.model)
+            displayer = ListDisplayer(self.results, self.pb_cache, self.model)
             displayer.start()
         return False    # run once -- do_search is called by a gobject.idle
 
@@ -610,6 +639,7 @@ class DisplayModel:
     def make_view2(self, model):
         """ Make the main view for the icon view list store """
         self.view2 = gtk.TreeView(model)
+        self.view2.set_events( gtk.gdk.BUTTON_PRESS_MASK )
         # setup the icon name cell-renderer
         self.renderer20 = gtk.CellRendererText()
         self.renderer20.set_property("xpad", 5)

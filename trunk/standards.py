@@ -329,7 +329,5 @@ class StandardIconNamingSpec:
     def isstandard(self, context, icon):
         """ Determines if the context and name passed exist in the standard dict.
             Returns True if context & name are in the Icon Naming Specification"""
-        if context in self.standard_names.keys():
-            return icon in self.standard_names[context]
-        else:
-            return False
+        return self.standard_names.has_key(context) and \
+            icon in self.standard_names[context]
