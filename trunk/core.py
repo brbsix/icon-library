@@ -122,6 +122,7 @@ class IconLibraryController:
 
     def setup_main_gui(self, Theme, IconDB, Store, Display):
         """ The main gui, home to everything worth while """
+        # TODO: where possible move layout stuff from v/hboxes to gtk.ButtonBox
         vbox = gtk.VBox()
 
         # remove greeter widgets
@@ -421,21 +422,23 @@ class IconDatabase:
     def __init__(self):
         """ Both the DB and pixbuf cache are filled. """
         self.term = ""
+        self.length = 0
         self.note = None
         self.model = None
         self.standard_only = False
         self.ctx_filter = "All Contexts"
+        self.NamingSpec = standards.StandardIconNamingSpec()
 
         self.conn = sqlite3.connect(":memory:")
         self.cursor = self.conn.cursor()
-        self.cursor.execute("CREATE TABLE theme ( name TEXT, context TEXT , standard BOOLEAN, islink BOOLEAN, scalable BOOLEAN )")
-        self.length = 0
-
-        self.NamingSpec = standards.StandardIconNamingSpec()
+        self.cursor.execute(
+            """CREATE TABLE theme ( id INTEGER, name TEXT, context TEXT, standard BOOLEAN, islink BOOLEAN, scalable BOOLEAN )"""
+            )
         return
 
     def load(self, Theme):
-        self.pb_cache = {}
+        i = 0
+        self.pb_cache = ()
         contexts = Theme.list_contexts()
         for ctx in contexts:
             ctx_icons = list(Theme.list_icons(ctx))
@@ -453,8 +456,9 @@ class IconDatabase:
                 if not error:
                     scalable = -1 in Theme.get_icon_sizes(ico)
                     standard = self.NamingSpec.isstandard(ctx, ico)
-                    self.cursor.execute("INSERT INTO theme VALUES (?,?,?,?,?)", (ico, ctx, standard, islink, scalable))
-                    self.pb_cache[ico] = (pb0, pb1, pb2)
+                    self.cursor.execute("INSERT INTO theme VALUES (?,?,?,?,?,?)", (i, ico, ctx, standard, islink, scalable))
+                    self.pb_cache += ( (pb0, pb1, pb2), )
+                    i += 1
         return
 
     def reload(self, Theme):
@@ -516,9 +520,9 @@ class IconDatabase:
         if self.standard_only:
             std = "<b>standard</b> "
         if term == "":
-            info = "<b>%s</b> %sicons in <b>%s</b>" % (str(num_of_results), std, self.ctx_filter)
+            info = "<b>%s</b> %sicons in <b>%s</b>" % (num_of_results, std, self.ctx_filter)
         else:
-            info = "<b>%s</b> %sresults for <b>%s</b> in <b>%s</b>" % (str(num_of_results), std, term, self.ctx_filter)
+            info = "<b>%s</b> %sresults for <b>%s</b> in <b>%s</b>" % (num_of_results, std, term, self.ctx_filter)
         self.note.set_markup(info)
         return
 
@@ -702,10 +706,10 @@ class ListDisplayer(threading.Thread):
     def run(self):
         """ Add content to cells """
         while not self.finished.isSet():
-            for ico, context, standard, islink, scalable in self.results:
-                pb0 = self.pb_cache[ico][0]
-                pb1 = self.pb_cache[ico][1]
-                pb2 = self.pb_cache[ico][2]
+            for index, ico, context, standard, islink, scalable in self.results:
+                pb0 = self.pb_cache[index][0]
+                pb1 = self.pb_cache[index][1]
+                pb2 = self.pb_cache[index][2]
 
                 notes = None
                 if standard:
