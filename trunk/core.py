@@ -12,7 +12,6 @@ pygtk.require("2.0")
 import os
 import sys
 import gtk
-import time
 import gobject
 import sqlite3
 import colorise
@@ -513,14 +512,13 @@ class IconDatabase:
 
     def give_feedback(self, term, num_of_results):
         """ Displays basic search stats in the GUI """
-        stndrd = ""
+        std = ""
         if self.standard_only:
-            stndrd = "<b>standard</b> "
+            std = "<b>standard</b> "
         if term == "":
-            if self.standard_only:  stndrd = "<b>standard</b> "
-            info = "<b>%s</b> %sicons in <b>%s</b>" % (str(num_of_results), stndrd, self.ctx_filter)
+            info = "<b>%s</b> %sicons in <b>%s</b>" % (str(num_of_results), std, self.ctx_filter)
         else:
-            info = "<b>%s</b> %sresults for <b>%s</b> in <b>%s</b>" % (str(num_of_results), stndrd, term, self.ctx_filter)
+            info = "<b>%s</b> %sresults for <b>%s</b> in <b>%s</b>" % (str(num_of_results), std, term, self.ctx_filter)
         self.note.set_markup(info)
         return
 
