@@ -222,6 +222,13 @@ class IconLibraryController:
             "Displaying <b>%s</b> icons" % ( IconDB.get_length() )
             )
 
+        # view2 popup menu
+        self.popup = gtk.Menu()
+        self.popup.show_all()
+        edit_action = gtk.Action("Editor", "Edit Icon Set...", None, gtk.STOCK_EDIT)
+        self.popup.add( edit_action.create_menu_item() )
+        edit_action.connect("activate", self.edit_iconset_dialog_cb)
+
         self.root.add(vbox)
         self.root.show_all()
 
@@ -279,12 +286,14 @@ class IconLibraryController:
         return
 
     def theme_change_dialog_cb(self, *kw):
+        # TODO: Make more HIGy
         dialog = gtk.Dialog(
             "Change Icon Theme",
             self.root,
             gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
             (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT)
             )
+        dialog.set_has_separator(False)
 
         # list all discoverable themes in a combo box
         theme_sel = gtk.combo_box_new_text()
@@ -300,11 +309,11 @@ class IconLibraryController:
         theme_sel.set_active(active)
         theme_sel.set_tooltip_text("Select an icon theme")
 
-        welcome = gtk.Label()
-        welcome.set_justify(gtk.JUSTIFY_CENTER)
-        welcome.set_text("Select a new icon theme to view")
+        header = gtk.Label()
+        header.set_justify(gtk.JUSTIFY_CENTER)
+        header.set_text("Select a new icon theme to view")
 
-        dialog.vbox.pack_start(welcome, False, False, 15)
+        dialog.vbox.pack_start(header, False, False, 5)
         dialog.vbox.pack_start(theme_sel, False, False, 10)
 
         dialog.connect("response", self.theme_change_dialog_response_cb, theme_sel)
@@ -333,30 +342,61 @@ class IconLibraryController:
         return
 
     def view2_row_activated_cb(self, *kw):
-#        for size in self.Theme.get_icon_sizes(ico):
-#            path = self.Theme.lookup_icon(ico, size, 0).get_filename()
         treeview = kw[0]
         event = kw[-1]
         if event.button == 3:
-            popup = gtk.Menu()
-            edit = gtk.ImageMenuItem(gtk.STOCK_EDIT)
-            popup.add(edit)
-            popup.show_all()
             x = int(event.x)
             y = int(event.y)
             time = event.time
             pthinfo = treeview.get_path_at_pos(x, y)
             if pthinfo is not None:
                 path, col, cellx, celly = pthinfo
-#                print self.IconDB.results[path[0]][1]
+                self.selected_ico = self.IconDB.results[path[0]][1]
                 treeview.grab_focus()
                 treeview.set_cursor( path, col, 0)
-                popup.popup( None, None, None, event.button, time)
+                self.popup.popup( None, None, None, event.button, time)
                 return
         return
 
-    def edit_menu_cb(self, *kw):
-        print "edit menu"
+    def edit_iconset_dialog_cb(self, *kw):
+        dialog = gtk.Dialog(
+            "Edit Icon Set",
+            self.root,
+            gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+            (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT)
+            )
+        sizes = list( self.Theme.get_icon_sizes(self.selected_ico) )
+        sizes.sort()
+        if sizes[0] == -1:
+            del sizes[0]
+            sizes += 56,
+        lbl = gtk.Label()
+        lbl.set_markup( "<b>%s</b>" % self.selected_ico )
+        dialog.vbox.pack_start(lbl, padding=5)
+        dialog.vbox.set_spacing(3)
+        hsep = gtk.HSeparator()
+        dialog.vbox.pack_start(hsep)
+        hbox0 = gtk.HBox()
+        vbox0 = gtk.VBox()
+        vsep = gtk.VSeparator()
+        vbox1 = gtk.VBox()
+        dialog.vbox.pack_start(hbox0)
+        hbox0.pack_start(vbox0)
+        hbox0.pack_start(vsep)
+        hbox0.pack_start(vbox1)
+        for size in sizes:
+            path = os.path.realpath( self.Theme.lookup_icon(self.selected_ico, size, 0).get_filename() )
+            im = gtk.image_new_from_file(path)
+            im.set_tooltip_text(path)
+            if size == 56:
+                size = "scalable"
+            else:
+                size = "%sx%s" % (size, size)
+            l = gtk.Label(size)
+            l.set_size_request( -1, im.get_pixbuf().get_height() )
+            vbox0.pack_start(im, False, padding=5)
+            vbox1.pack_start(l, False, padding=5)
+        dialog.show_all()
         return
 
     def filter_by_context_cb(self, *kw):
