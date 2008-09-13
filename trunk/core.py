@@ -12,6 +12,7 @@ pygtk.require("2.0")
 import os
 import sys
 import gtk
+import editor
 import gobject
 import sqlite3
 import colorise
@@ -279,10 +280,10 @@ class IconLibraryController:
         e = self.encumbant_focus
         if e != successor:
             e.relinquish_focus()
-            self.encumbant_focus = successor
             gobject.idle_add(
                 self.Display.modify_view2_colors, successor.get_colors()
                 )
+        self.encumbant_focus = successor
         return
 
     def theme_change_dialog_cb(self, *kw):
@@ -359,44 +360,8 @@ class IconLibraryController:
         return
 
     def edit_iconset_dialog_cb(self, *kw):
-        dialog = gtk.Dialog(
-            "Edit Icon Set",
-            self.root,
-            gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-            (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT)
-            )
-        sizes = list( self.Theme.get_icon_sizes(self.selected_ico) )
-        sizes.sort()
-        if sizes[0] == -1:
-            del sizes[0]
-            sizes += 56,
-        lbl = gtk.Label()
-        lbl.set_markup( "<b>%s</b>" % self.selected_ico )
-        dialog.vbox.pack_start(lbl, padding=5)
-        dialog.vbox.set_spacing(3)
-        hsep = gtk.HSeparator()
-        dialog.vbox.pack_start(hsep)
-        hbox0 = gtk.HBox()
-        vbox0 = gtk.VBox()
-        vsep = gtk.VSeparator()
-        vbox1 = gtk.VBox()
-        dialog.vbox.pack_start(hbox0)
-        hbox0.pack_start(vbox0)
-        hbox0.pack_start(vsep)
-        hbox0.pack_start(vbox1)
-        for size in sizes:
-            path = os.path.realpath( self.Theme.lookup_icon(self.selected_ico, size, 0).get_filename() )
-            im = gtk.image_new_from_file(path)
-            im.set_tooltip_text(path)
-            if size == 56:
-                size = "scalable"
-            else:
-                size = "%sx%s" % (size, size)
-            l = gtk.Label(size)
-            l.set_size_request( -1, im.get_pixbuf().get_height() )
-            vbox0.pack_start(im, False, padding=5)
-            vbox1.pack_start(l, False, padding=5)
-        dialog.show_all()
+        is_editor = editor.IconSetEditorDialog(self.root)
+        is_editor.make_dialog(self.Theme, self.selected_ico)
         return
 
     def filter_by_context_cb(self, *kw):
