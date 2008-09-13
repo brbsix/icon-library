@@ -29,7 +29,7 @@ class IconSetEditorDialog(gtk.Dialog):
         hs = gtk.HSeparator()
         self.header = gtk.Label()
         self.hbox0 = gtk.HBox()
-        self.size_note = gtk.Label()
+        self.size_note = gtk.Label("Select an icon to edit")
 
         self.vbox.pack_start(self.header, padding=5)
         self.vbox.set_spacing(3)
