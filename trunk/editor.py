@@ -80,7 +80,6 @@ class IconSetEditorDialog(gtk.Dialog):
         self.ip_list = ()
         pos = 1
         length = len(sizes)
-        self.notes.set_size_request(64 * length, -1)
         for size in sizes:
             if type(size) == int:
                 path = Theme.lookup_icon(selected_ico, size, 0).get_filename()
@@ -116,10 +115,14 @@ class IconSetEditorDialog(gtk.Dialog):
         return
 
     def backup_and_replace_icon(self, icon):
+        import time
         import shutil
         # backup
         backup_dir = os.path.join(os.getcwd(), 'backup')
-        backup = os.path.join( backup_dir, os.path.split( icon.default_path)[1]+'.backup' )
+        backup = os.path.join( 
+            backup_dir,
+            os.path.split( icon.default_path)[1]+'.backup'+str( time.time() )
+            )
         print '\nA backup has been made:\n', backup
         if not os.path.isdir(backup_dir):
             os.mkdir(backup_dir)
@@ -150,7 +153,7 @@ class IconSetEditorDialog(gtk.Dialog):
     def icon_chooser_dialog_cb(self, *kw):
         e = self.encumbant_focus
         chooser = gtk.FileChooserDialog(
-            title="Select a %s s icon..." % (e.size_label, self.ico_name)
+            title="Select a %s %s icon..." % (e.size_label, self.ico_name),
             action=gtk.FILE_CHOOSER_ACTION_OPEN,
             buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN,gtk.RESPONSE_OK)
             )
