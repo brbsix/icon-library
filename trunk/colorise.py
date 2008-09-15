@@ -131,16 +131,20 @@ class ColorSwatch(gtk.DrawingArea):
 
 
 class IconPreview(gtk.DrawingArea):
-    def __init__(self, pb, pos, length, label=None, cb=None):
+    def __init__(self, path, pos, length, size, w_ok=False, cb=None):
         gtk.DrawingArea.__init__(self)
+        self.write_ok = w_ok
         self.unset_focus_cb = cb
-        self.pixbuf = pb
-        self.label = label
+        self.size_label = size
+        self.default_path = path
+        self.cur_path = None
+        self.pre_path = None
+        self.pixbuf = gtk.gdk.pixbuf_new_from_file(path)
         self.pos = pos
         self.length = length
 
         self.isactive = False
-        self.set_size_request(60, 60)
+        self.set_size_request(64, 64)
         self.set_events(gtk.gdk.BUTTON_PRESS_MASK)
         self.connect("expose_event", self.expose)
         self.connect("button-press-event", self.attain_focus_cb)
@@ -171,7 +175,7 @@ class IconPreview(gtk.DrawingArea):
 
         if self.isactive:
             linear = cairo.LinearGradient(0, 0, 0, alloc.height)
-            r, g, b = self.darken( self.to_floats( self.style.base[gtk.STATE_SELECTED] ))
+            r, g, b = self.inc_saturation( self.darken( self.to_floats( self.style.base[gtk.STATE_SELECTED] )))
             linear.add_color_stop_rgb(0, r, g, b)
             r, g, b = self.lighten( self.to_floats( self.style.bg[gtk.STATE_SELECTED] ) )
             linear.add_color_stop_rgb(1, r, g, b)
@@ -223,7 +227,7 @@ class IconPreview(gtk.DrawingArea):
             b = rgb.blue / 65535.0
         return r, g, b
 
-    def inc_saturation(self, rgb, amount=0.10):
+    def inc_saturation(self, rgb, amount=0.075):
         rgb = list(rgb)
         index = [0, 1, 2]
         del index[rgb.index( max(rgb) )]
@@ -233,11 +237,24 @@ class IconPreview(gtk.DrawingArea):
                 rgb[i] = 0
         return rgb[0], rgb[1], rgb[2]
 
-    def darken(self, rgb, amount=0.125):
+    def darken(self, rgb, amount=0.175):
         return rgb[0] - amount, rgb[1] - amount, rgb[2] - amount
 
     def lighten(self, rgb, amount=0.0175):
         return rgb[0] + amount, rgb[1] + amount, rgb[2] + amount
+
+    def set_icon(self, path):
+        self.cur_path = path
+        self.pixbuf = gtk.gdk.pixbuf_new_from_file(path)
+        self.queue_draw()
+        return False
+
+    def reset_default_icon(self):
+        self.pre_path = self.cur_path
+        self.cur_path = self.default_path
+        self.pixbuf = gtk.gdk.pixbuf_new_from_file(self.default_path)
+        self.queue_draw()
+        return False
 
     def give_focus(self):
         self.isactive = True
