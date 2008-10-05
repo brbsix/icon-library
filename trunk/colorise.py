@@ -19,14 +19,15 @@ from math import pi
 
 
 class ColorSwatch(gtk.DrawingArea):
-    def __init__(self, bg, txt1, txt2, style, cb, tip=None, default=False):
+    def __init__(self, cb, style, bg=None, txt1=None, txt2=None, tip=None, default=False):
         gtk.DrawingArea.__init__(self)
         self.default = default
-        self.bg = self.type_check(bg)
-        self.text_normal = self.type_check(txt1)
-        self.text_insensitive = self.type_check(txt2)
 
-        self.swatch_color_f = self.to_floats(bg)
+        self.bg = bg or style.base[gtk.STATE_NORMAL].to_string()
+        self.text_normal = txt1 or style.text[gtk.STATE_NORMAL].to_string()
+        self.text_insensitive = txt2 or style.text[gtk.STATE_INSENSITIVE].to_string()
+
+        self.swatch_color_f = self.to_floats(self.bg)
         self.BORDER_COLOR = self.to_floats( style.dark[gtk.STATE_NORMAL] )
         self.SELECTED_COLOR = self.to_floats( style.bg[gtk.STATE_SELECTED] )
         self.unset_focus_cb = cb
@@ -40,11 +41,6 @@ class ColorSwatch(gtk.DrawingArea):
         self.connect("expose_event", self.expose)
         self.connect("button-press-event", self.attain_focus_cb)
         return
-
-    def type_check(self, color):
-        if type(color) == gtk.gdk.Color:
-            return color.to_string()
-        return color
 
     def expose(self, widget, event):
         cr = widget.window.cairo_create()
@@ -101,6 +97,12 @@ class ColorSwatch(gtk.DrawingArea):
             b = rgb.blue / 65535.0
         return r, g, b
 
+    def darken(self, rgb, amount=0.175):
+        return rgb[0] - amount, rgb[1] - amount, rgb[2] - amount
+
+    def lighten(self, rgb, amount=0.0175):
+        return rgb[0] + amount, rgb[1] + amount, rgb[2] + amount
+
     def inc_saturation(self, rgb, amount=0.15):
         rgb = list(rgb)
         index = [0, 1, 2]
@@ -130,24 +132,28 @@ class ColorSwatch(gtk.DrawingArea):
         return self.bg, self.text_normal, self.text_insensitive, self.default
 
 
-class IconPreview(gtk.DrawingArea):
-    def __init__(self, path, pos, length, size, w_ok=False, cb=None):
+class IconDataPreview(gtk.DrawingArea):
+    def __init__(self, path, size, w_ok=False):
         gtk.DrawingArea.__init__(self)
+        self.path = path
         self.write_ok = w_ok
-        self.unset_focus_cb = cb
         self.size_label = size
         self.default_path = path
         self.cur_path = None
         self.pre_path = None
         self.pixbuf = gtk.gdk.pixbuf_new_from_file(path)
-        self.pos = pos
-        self.length = length
 
-        self.isactive = False
-        self.set_size_request(64, 64)
+        x, y = self.pixbuf.get_width(), self.pixbuf.get_height()
+        if max(x,y) > 64:
+            self.set_size_request(
+                x + 8,
+                y + 8
+                )
+        else:
+            self.set_size_request(64, 64)
+
         self.set_events(gtk.gdk.BUTTON_PRESS_MASK)
         self.connect("expose_event", self.expose)
-        self.connect("button-press-event", self.attain_focus_cb)
         return
 
     def expose(self, widget, event):
@@ -164,26 +170,8 @@ class IconPreview(gtk.DrawingArea):
 
     def draw(self, cr, alloc):
         r = 6
-        if self.length == 1:
-            self.draft_rounded_rectangle(cr, alloc.width, alloc.height, (r,r,r,r), 0, 0)
-        elif self.pos > 1 and self.pos != self.length:
-            self.draft_rounded_rectangle(cr, alloc.width, alloc.height, (0,0,0,0), 0, 0)
-        elif self.pos == 1 and self.length > 1:
-            self.draft_rounded_rectangle(cr, alloc.width, alloc.height, (r,0,0,r), 0, 0)
-        else:
-            self.draft_rounded_rectangle(cr, alloc.width, alloc.height, (0,r,r,0), 0, 0)
-
-        if self.isactive:
-            linear = cairo.LinearGradient(0, 0, 0, alloc.height)
-            r, g, b = self.inc_saturation( self.darken( self.to_floats( self.style.base[gtk.STATE_SELECTED] )))
-            linear.add_color_stop_rgb(0, r, g, b)
-            r, g, b = self.lighten( self.to_floats( self.style.bg[gtk.STATE_SELECTED] ) )
-            linear.add_color_stop_rgb(1, r, g, b)
-        else:
-            linear = cairo.LinearGradient(0, 0, 0, alloc.height)
-            linear.add_color_stop_rgba(1, 1, 1, 1, 0.25)
-            linear.add_color_stop_rgba(0, 1, 1, 1, 0.4)
-        cr.set_source(linear)
+        self.draft_rounded_rectangle(cr, alloc.width, alloc.height, (r,r,r,r), 0, 0)
+        cr.set_source_rgba(1, 1, 1, 0.85)
         cr.fill()
         return
 
@@ -209,40 +197,6 @@ class IconPreview(gtk.DrawingArea):
         cr.close_path()
         return
 
-    def to_floats(self, rgb):
-        # hex to cairo rgb floats
-        if type(rgb) == str:
-            rgb = rgb[1:]
-            step = len(rgb)/3
-            div = 255.0
-            if step == 4:
-                div = 65535.0
-            r = int(rgb[:step], 16) / div
-            g = int(rgb[step:2*step], 16) / div
-            b = int(rgb[2*step:3*step], 16) / div
-        # gtk.gdk.Color to cairo rgb floats
-        elif type(rgb) == gtk.gdk.Color:
-            r = rgb.red / 65535.0
-            g = rgb.green / 65535.0
-            b = rgb.blue / 65535.0
-        return r, g, b
-
-    def inc_saturation(self, rgb, amount=0.075):
-        rgb = list(rgb)
-        index = [0, 1, 2]
-        del index[rgb.index( max(rgb) )]
-        for i in index:
-            rgb[i] -= amount
-            if rgb[i] < 0:
-                rgb[i] = 0
-        return rgb[0], rgb[1], rgb[2]
-
-    def darken(self, rgb, amount=0.175):
-        return rgb[0] - amount, rgb[1] - amount, rgb[2] - amount
-
-    def lighten(self, rgb, amount=0.0175):
-        return rgb[0] + amount, rgb[1] + amount, rgb[2] + amount
-
     def set_icon(self, path):
         self.cur_path = path
         self.pixbuf = gtk.gdk.pixbuf_new_from_file(path)
@@ -255,18 +209,3 @@ class IconPreview(gtk.DrawingArea):
         self.pixbuf = gtk.gdk.pixbuf_new_from_file(self.default_path)
         self.queue_draw()
         return False
-
-    def give_focus(self):
-        self.isactive = True
-        return self
-
-    def attain_focus_cb(self, *kw):
-        self.isactive = True
-        self.queue_draw()
-        self.unset_focus_cb(self)
-        return
-
-    def relinquish_focus(self, *kw):
-        self.isactive = False
-        self.queue_draw()
-        return

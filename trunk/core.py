@@ -12,6 +12,7 @@ pygtk.require("2.0")
 import os
 import sys
 import gtk
+import pango
 import editor
 import gobject
 import sqlite3
@@ -22,15 +23,6 @@ import standards
 #Initializing the gtk's thread engine
 gtk.gdk.threads_init()
 
-
-# might be useful
-style = gtk.rc_get_style_by_paths(
-    gtk.settings_get_default(),
-    'GtkWindow',
-    'GtkWindow',
-    gtk.Window
-    )
-TEXT_INSENSITIVE_COLOR = style.text[4].to_string()
 
 
 class IconLibraryController:
@@ -53,11 +45,11 @@ class IconLibraryController:
 
         self.Theme = IconTheme()
         # start the greeter gui
-        self.setup_greeter_gui(self.Theme)
+        self.gui_setup_greeter(self.Theme)
         gtk.main()
         return
 
-    def setup_greeter_gui(self, Theme):
+    def gui_setup_greeter(self, Theme):
         """ Greets the user and offers a range of themes to choose from """
         align = gtk.Alignment(xalign=0.5, yalign=0.5)
         align2 = gtk.Alignment(xalign=0.5)
@@ -108,12 +100,12 @@ class IconLibraryController:
         """ Load Treeview models and views and load the icon database.
             When completed load the main gui """
         self.IconDB = IconDatabase()
-        self.IconDB.load(Theme)
+        self.IconDB.db_load(Theme)
         self.Store = InfoModel(Theme)
         self.Display = DisplayModel()
 
         # load main gui
-        self.setup_main_gui(
+        self.gui_setup_main(
             self.Theme,
             self.IconDB,
             self.Store,
@@ -121,7 +113,7 @@ class IconLibraryController:
             )
         return False    # run once, called by an gobject idle process
 
-    def setup_main_gui(self, Theme, IconDB, Store, Display):
+    def gui_setup_main(self, Theme, IconDB, Store, Display):
         """ The main gui, home to everything worth while """
         # TODO: where possible transition layout stuff from v/hboxes to gtk.ButtonBox
         vbox = gtk.VBox()
@@ -135,9 +127,41 @@ class IconLibraryController:
         hbox = gtk.HBox()
         vbox.pack_start(hbox, False, padding=5)
 
+        srch_btn = self.gui_setup_toolbar( hbox )
+        scroller1, scroller2, btm_hbox1, btm_hbox2 = self.gui_setup_panels( vbox )
+        self.gui_setup_search_note( btm_hbox1 )
+        view1, view2 = self.gui_setup_listviews( Store, Display )
+
+        scroller1.add(view1)
+        scroller2.add(view2)
+
+        # set the target note and treeview model callbacks
+        IconDB.set_target_note(self.srch_note)
+        IconDB.set_target_model(self.mdl2)
+
+        self.srch_entry.connect("activate", IconDB.do_search, self.srch_entry, "like")
+        srch_btn.connect("clicked", IconDB.do_search, self.srch_entry, "like")
+
+        # set initial notes based on initial loading of icon theme database
+        self.srch_note.set_markup(
+            "Displaying <b>%s</b> icons" % ( IconDB.get_length() )
+            )
+
+        self.gui_setup_iconview_popup()
+
+        self.root.add(vbox)
+        self.root.show_all()
+
+        self.gui_setup_color_swatches( btm_hbox2 )
+
+        # fire off an initial search to fill icon view upon main gui launch
+        IconDB.do_search(self.srch_entry, "like")
+        return
+
+    def gui_setup_toolbar(self, hbox):
         # theme change button/theme avatar
         self.theme_change = gtk.Button()
-        self.make_theme_avatar()
+        self.gui_make_theme_avatar()
         self.theme_change.set_relief(gtk.RELIEF_NONE)
         self.theme_change.set_tooltip_text("Switch theme")
         hbox.pack_start(self.theme_change, False, padding=5)
@@ -145,7 +169,7 @@ class IconLibraryController:
 
         # label naming the current viewable theme, plus comment
         self.cur_theme = gtk.Label()
-        self.make_theme_header()
+        self.gui_make_theme_header()
         hbox.pack_start(self.cur_theme, False)
 
         # check button that filters out icons whose names are not in the Standard Naming Spec
@@ -154,7 +178,7 @@ class IconLibraryController:
         # filter the view for icon names matching the search term
         self.srch_entry = gtk.Entry(60)
         srch_btn = gtk.Button(stock=gtk.STOCK_FIND)
-        self.stndrd_check.connect("toggled", self.filter_by_standard_names_cb)
+        self.stndrd_check.connect("toggled", self.theme_filter_by_standard_names_cb)
 
         srch_vbox = gtk.VBox()
         srch_align = gtk.Alignment(yalign=0.5)
@@ -164,7 +188,9 @@ class IconLibraryController:
         srch_vbox.pack_start(srch_btn, False)
         hbox.pack_end(self.srch_entry, False)
         hbox.pack_end(self.stndrd_check, False, padding=5)
+        return srch_btn
 
+    def gui_setup_panels( self, vbox ):
         # setup two panels
         hpaned = gtk.HPaned()
         hpaned.set_position(135)
@@ -190,13 +216,17 @@ class IconLibraryController:
         btm_hbox.add(btm_hbox2)
 
         vbox.pack_end(btm_hbox, False)
+        return scroller1, scroller2, btm_hbox1, btm_hbox2
 
+    def gui_setup_search_note( self, btm_hbox1 ):
         # a note to provide basic search stats
         self.srch_note = gtk.Label()
         self.srch_note.set_alignment(0.5, 0.5)
         btm_hbox1.pack_end(self.srch_note)
         self.srch_note.set_size_request(-1, 24)
+        return
 
+    def gui_setup_listviews( self, Store, Display ):
         # make the context filter
         self.mdl1 = Store.get_model1()
         self.view1 = Display.make_view1(self.mdl1)
@@ -207,43 +237,31 @@ class IconLibraryController:
         self.mdl2 = Store.get_model2()
         self.view2 = Display.make_view2(self.mdl2)
         self.view2.connect("button-release-event", self.view2_row_activated_cb)
+        return self.view1, self.view2
 
-        scroller1.add(self.view1)
-        scroller2.add(self.view2)
-
-        # set the target note and treeview model callbacks
-        IconDB.set_target_note(self.srch_note)
-        IconDB.set_target_model(self.mdl2)
-
-        self.srch_entry.connect("activate", IconDB.do_search, self.srch_entry)
-        srch_btn.connect("clicked", IconDB.do_search, self.srch_entry)
-
-        # set initial notes based on initial loading of icon theme database
-        self.srch_note.set_markup(
-            "Displaying <b>%s</b> icons" % ( IconDB.get_length() )
-            )
-
+    def gui_setup_iconview_popup( self ):
         # view2 popup menu
         self.popup = gtk.Menu()
         self.popup.show_all()
-        edit_action = gtk.Action("Editor", "Edit Icon Set...", None, gtk.STOCK_EDIT)
+        edit_action = gtk.Action("Editor", "Icon set properties", None, gtk.STOCK_EDIT)
+        self.jump_action = gtk.Action("Jump to", "Jump to target icon", None, gtk.STOCK_JUMP_TO)
         self.popup.add( edit_action.create_menu_item() )
+        self.popup.add( self.jump_action.create_menu_item() )
         edit_action.connect("activate", self.edit_iconset_dialog_cb)
+        self.jump_action.connect("activate", self.jump_to_target_icon_cb)
+        return
 
-        self.root.add(vbox)
-        self.root.show_all()
-
+    def gui_setup_color_swatches( self, btm_hbox2 ):
         # swatchery
         # make color swatch to change the base color of the icon view
         self.encumbant_focus = None
-        cb = self.color_sel_change_cb
-        bg = self.view2.get_style().base[gtk.STATE_NORMAL]
-        txt1 = self.view2.get_style().text[gtk.STATE_NORMAL]
-        txt2 = self.view2.get_style().text[gtk.STATE_INSENSITIVE]
-        color_sel0 = colorise.ColorSwatch(bg, txt1, txt2, style, cb, tip="Default", default=True)
-        color_sel1 = colorise.ColorSwatch("#FFFFFF", txt1, txt2, style, cb, tip="White")
-        color_sel2 = colorise.ColorSwatch("#9C9C9C", txt1, "#525252", style, cb, tip="Grey")
-        color_sel3 = colorise.ColorSwatch("#525252", "#E6E6E6", "#9E9E9E", style, cb, tip="Dark grey")
+        style = self.view2.get_style()
+        cb = self.gui_bg_color_change_cb
+
+        color_sel0 = colorise.ColorSwatch(cb, style, tip="Default", default=True)
+        color_sel1 = colorise.ColorSwatch(cb,  style, bg="#FFFFFF", tip="White")
+        color_sel2 = colorise.ColorSwatch(cb,  style, bg="#9C9C9C", txt2="#525252", tip="Grey")
+        color_sel3 = colorise.ColorSwatch(cb,  style, bg="#525252", txt1="#E6E6E6", txt2="#9E9E9E", tip="Dark grey")
         self.encumbant_focus = color_sel0.give_focus()
 
         btm_hbox2.pack_end(color_sel3, False)
@@ -251,12 +269,9 @@ class IconLibraryController:
         btm_hbox2.pack_end(color_sel1, False)
         btm_hbox2.pack_end(color_sel0, False)
         btm_hbox2.show_all()
-
-        # fire off an initial search to fill icon view upon main gui launch
-        IconDB.do_search(self.srch_entry)
         return
 
-    def make_theme_header(self):
+    def gui_make_theme_header(self):
         Theme = self.Theme
         name = Theme.info[1] or "Unnamed"
         comment = Theme.read_comment( Theme.info[2] ) or "No comment"
@@ -265,7 +280,7 @@ class IconLibraryController:
         self.cur_theme.set_markup(s)
         return
 
-    def make_theme_avatar(self):
+    def gui_make_theme_avatar(self):
         try:
             self.theme_change.set_image(
                 gtk.image_new_from_pixbuf(
@@ -276,7 +291,7 @@ class IconLibraryController:
             self.theme_change.set_image( gtk.image_new_from_icon_name("folder", gtk.ICON_SIZE_DND) )
         return
 
-    def color_sel_change_cb(self, successor):
+    def gui_bg_color_change_cb(self, successor):
         e = self.encumbant_focus
         if e != successor:
             e.relinquish_focus()
@@ -326,37 +341,44 @@ class IconLibraryController:
             kw[0].destroy()
         elif kw[-2] == -3:
             self.Theme.set_theme( self.themes[kw[-1].get_active()] )
-            self.IconDB.reload(self.Theme)
+            self.IconDB.db_reload(self.Theme)
             # set theme avatar
-            self.make_theme_avatar()
-            self.make_theme_header()
+            self.gui_make_theme_avatar()
+            self.gui_make_theme_header()
             # fire off a search to fill icon view on new theme selection
-            self.IconDB.do_search(self.srch_entry)
+            self.IconDB.do_search(self.srch_entry, "like")
             kw[0].destroy()
         return
 
-    def filter_by_standard_names_cb(self, *kw):
+    def theme_filter_by_standard_names_cb(self, *kw):
         """ Filter search results by icon names which exist in the Icon Naming Specification """
         stndrd_only = kw[0].get_active()
         self.IconDB.set_standard_filter(stndrd_only)
-        gobject.idle_add(self.IconDB.do_search, self.srch_entry)
+        gobject.idle_add(self.IconDB.do_search, self.srch_entry, "like")
         return
 
     def view2_row_activated_cb(self, *kw):
         treeview = kw[0]
         event = kw[-1]
         if event.button == 3:
-            x = int(event.x)
-            y = int(event.y)
-            time = event.time
-            pthinfo = treeview.get_path_at_pos(x, y)
-            if pthinfo is not None:
-                path, col, cellx, celly = pthinfo
-                self.selected_ico = self.IconDB.results[path[0]][1]
-                treeview.grab_focus()
-                treeview.set_cursor( path, col, 0)
-                self.popup.popup( None, None, None, event.button, time)
-                return
+            self.view2_display_iconview_popup( treeview, event )
+        return
+
+    def view2_display_iconview_popup( self, treeview, event ):
+        x = int(event.x)
+        y = int(event.y)
+        time = event.time
+        pthinfo = treeview.get_path_at_pos(x, y)
+        if pthinfo is not None:
+            treeview.grab_focus()
+            path, col, cellx, celly = pthinfo
+            results = self.IconDB.results[path[0]]
+            self.selected_ico = results[1]
+            if results[4]:
+                self.jump_action.set_sensitive( True )
+            else:
+                self.jump_action.set_sensitive( False )
+            self.popup.popup( None, None, None, event.button, time)
         return
 
     def edit_iconset_dialog_cb(self, *kw):
@@ -364,12 +386,59 @@ class IconLibraryController:
         is_editor.make_dialog(self.Theme, self.selected_ico)
         return
 
+    def jump_to_target_icon_cb( self, *kw ):
+        path = self.Theme.lookup_icon(self.selected_ico, 22, 0).get_filename()
+        rpath = os.path.realpath( path )
+        rname = os.path.splitext( os.path.split( rpath )[1] )[0]
+        found = False
+
+        for row in self.IconDB.model:
+            if row[0].startswith( "<b>" ):
+                if row[0][3:-4] == rname:
+                    self.view2.set_cursor( row.path )
+                    found = True
+                    break
+            elif row[0] == rname:
+                self.view2.set_cursor( row.path )
+                found = True
+                break
+
+        if not found:
+            self.IconDB.do_search( rname, "exact" )
+            self.prompt_target_icon_not_in_theme( rname, rpath )
+        return
+
+    def prompt_target_icon_not_in_theme(self, rname, rpath ):
+        dialog = gtk.Dialog(
+            "Target icon not found",
+            self.root,
+            gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+            (gtk.STOCK_OK, gtk.RESPONSE_OK)
+            )
+        dialog.set_has_separator(False)
+        s = "<b>%s</b>\n" % rname
+        s += "%s\n\n" % rpath
+        s += "The icon targeted by this symlink (%s) was not discovered!" % rname
+        notice = gtk.Label()
+        notice.set_justify( gtk.JUSTIFY_CENTER )
+        notice.set_size_request( 300, -1 )
+        notice.set_line_wrap( True )
+        notice.set_markup( s )
+        dialog.vbox.pack_start( notice, padding=8 )
+        dialog.vbox.show_all()
+
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            pass
+        dialog.destroy()
+        return
+
     def filter_by_context_cb(self, *kw):
         """ Filter search results by the select icon context """
-        sel = self.view1.get_selection().get_selected_rows()[1][0][0]
-        ctx = self.Store.contexts[sel]
+        model, path = self.view1.get_selection().get_selected()
+        ctx = model[path][0]
         self.IconDB.set_context_filter(ctx)
-        gobject.idle_add(self.IconDB.do_search, self.srch_entry)
+        gobject.idle_add(self.IconDB.do_search, self.srch_entry, "like")
         return
 
     def ok_cb(self, *kw):
@@ -460,7 +529,7 @@ class IconDatabase:
         self.model = None
         self.results = None
         self.standard_only = False
-        self.ctx_filter = "All Contexts"
+        self.ctx_filter = "<b>All Contexts</b>"
         self.NamingSpec = standards.StandardIconNamingSpec()
 
         self.conn = sqlite3.connect(":memory:")
@@ -470,7 +539,7 @@ class IconDatabase:
             )
         return
 
-    def load(self, Theme):
+    def db_load(self, Theme):
         i = 0
         self.pb_cache = ()
         contexts = Theme.list_contexts()
@@ -495,43 +564,28 @@ class IconDatabase:
                     i += 1
         return
 
-    def reload(self, Theme):
+    def db_reload(self, Theme):
         self.cursor.execute("DELETE FROM theme")
-        self.load(Theme)
+        self.db_load(Theme)
         return
 
     def do_search(self, *kw):
         """ do_search provides basic search functionality.
             It allows one term, the text taken from the gtk.Entry, plus a context filter. """
         if len(threading.enumerate()) == 1:
-            self.term = kw[-1].get_text()
-            term = self.term
-
-            # form a SQLite query
-            if term != "":
-                qterm = "\"%" + term + "%\""
-                query = "SELECT * FROM theme WHERE name LIKE %s" % qterm
-                if self.standard_only:
-                    query += " AND standard"
-                if self.ctx_filter != "All Contexts":
-                    query += " AND context=\"%s\" ORDER BY name" % self.ctx_filter
-                else:
-                    query += " ORDER BY context, name"
+            if type( kw[-2] ) == str:
+                self.term = kw[-2]
             else:
-                query = "SELECT * FROM theme"
-                if self.standard_only:
-                    query += " WHERE standard"
-                if self.ctx_filter != "All Contexts":
-                    if self.standard_only:
-                        query += " AND context=\"%s\" ORDER BY name" % self.ctx_filter
-                    else:
-                        query += " WHERE context=\"%s\" ORDER BY name" % self.ctx_filter
-                else:
-                    query += " ORDER BY context, name"
+                self.term = kw[-2].get_text()
+            if kw[-1] == "like":
+                query = self.query_like_search( self.term )
+            elif kw[-1] == "exact":
+                query = self.query_exact_search( self.term )
 
             try:
                 self.cursor.execute(query)
             except Exception, inst:
+                print query
                 print "\nBadQuery:", query
                 print inst
                 return False
@@ -540,13 +594,39 @@ class IconDatabase:
 
             # feedback basic search stats to the main gui
             if self.note:
-                self.give_feedback(term, len(self.results))
+                self.give_feedback(self.term, len(self.results))
 
             # start the ListDisplayer thread
             self.model.clear()
             displayer = ListDisplayer(self.results, self.pb_cache, self.model)
             displayer.start()
         return False    # run once -- do_search is called by a gobject.idle
+
+    def query_like_search( self, term ):
+        if term != "":
+            qterm = "\"%" + term + "%\""
+            query = "SELECT * FROM theme WHERE name LIKE %s" % qterm
+            if self.standard_only:
+                query += " AND standard"
+            if self.ctx_filter != "<b>All Contexts</b>":
+                query += " AND context=\"%s\" ORDER BY name" % self.ctx_filter
+            else:
+                query += " ORDER BY context, name"
+        else:
+            query = "SELECT * FROM theme"
+            if self.standard_only:
+                query += " WHERE standard"
+            if self.ctx_filter != "<b>All Contexts</b>":
+                if self.standard_only:
+                    query += " AND context=\"%s\" ORDER BY name" % self.ctx_filter
+                else:
+                    query += " WHERE context=\"%s\" ORDER BY name" % self.ctx_filter
+            else:
+                query += " ORDER BY context, name"
+        return query
+
+    def query_exact_search( self, term ):
+        return "SELECT * FROM theme WHERE name=\"%s\"" % term
 
     def give_feedback(self, term, num_of_results):
         """ Displays basic search stats in the GUI """
@@ -600,21 +680,20 @@ class InfoModel:
         """ Create two list store.  One for the context filter and one for the main
             icon view.  The context filter list store is filled, while the main view
             list store is not. """
-        self.list_store1 = gtk.ListStore( gobject.TYPE_STRING )
-
-        self.contexts = list( Theme.list_contexts() )
-        self.contexts.sort()
+        self.list_store1 = gtk.ListStore( str )
         self.list_store1.append( ("<b>All Contexts</b>",) )
-        for ctx in self.contexts:
+        ctxs = list( Theme.list_contexts() )
+        ctxs.sort()
+        for ctx in ctxs:
             self.list_store1.append( (ctx,) )
 
-        self.list_store2 = gtk.ListStore( gobject.TYPE_STRING,
-                                          gobject.TYPE_STRING,
+        self.list_store2 = gtk.ListStore( str,
+                                          str,
                                           gtk.gdk.Pixbuf,
                                           gtk.gdk.Pixbuf,
                                           gtk.gdk.Pixbuf,
-                                          gobject.TYPE_STRING )
-        self.contexts.insert(0, "All Contexts")
+                                          str
+                                          )
         return
 
     def get_model1(self):
@@ -634,7 +713,7 @@ class DisplayModel:
         renderer10 = gtk.CellRendererText()
         renderer10.set_property("xpad", 5)
         renderer10.set_property("wrap-width", 135)
-        renderer10.set_property("wrap-mode", gtk.WRAP_WORD)
+        renderer10.set_property("wrap-mode", pango.WRAP_WORD)
 
         column10 = gtk.TreeViewColumn("Context Filter", renderer10, markup=0)
 
@@ -649,11 +728,11 @@ class DisplayModel:
         self.renderer20 = gtk.CellRendererText()
         self.renderer20.set_property("xpad", 5)
         self.renderer20.set_property("wrap-width", 225)
-        self.renderer20.set_property("wrap-mode", gtk.WRAP_WORD)
+        self.renderer20.set_property("wrap-mode", pango.WRAP_WORD)
 
         self.renderer21 = gtk.CellRendererText()
         self.renderer21.set_property("wrap-width", 125)
-        self.renderer21.set_property("wrap-mode", gtk.WRAP_WORD)
+        self.renderer21.set_property("wrap-mode", pango.WRAP_WORD)
 
         # Setup the icon pixbuf cell-renderers
         self.renderer22 = gtk.CellRendererPixbuf()
@@ -671,7 +750,9 @@ class DisplayModel:
         # Setup the icon islink cell-render
         self.renderer25 = gtk.CellRendererText()
         self.renderer25.set_property('xpad', 5)
-        self.renderer25.set_property('foreground', TEXT_INSENSITIVE_COLOR)
+        self.renderer25.set_property('foreground',
+                                     self.view2.get_style().text[gtk.STATE_INSENSITIVE].to_string()
+                                     )
 
         # Connect columns to columns in icon view model
         column20 = gtk.TreeViewColumn("Name", self.renderer20, markup=0)
