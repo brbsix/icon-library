@@ -373,8 +373,8 @@ class IconLibraryController:
             treeview.grab_focus()
             path, col, cellx, celly = pthinfo
             results = self.IconDB.results[path[0]]
-            self.selected_ico = results[1]
-            if results[4]:
+            self.selected_icon_data = results
+            if results[0] != results[1]:
                 self.jump_action.set_sensitive( True )
             else:
                 self.jump_action.set_sensitive( False )
@@ -382,18 +382,21 @@ class IconLibraryController:
         return
 
     def edit_iconset_dialog_cb(self, *kw):
-        is_editor = editor.IconSetEditorDialog(self.root)
-        is_editor.make_dialog(self.Theme, self.selected_ico)
+        set_editor = editor.IconSetEditorDialog(
+            self.root,
+            self.IconDB.update_pixbuf_cache
+            )
+        set_editor.make_dialog( self.Theme, self.selected_icon_data )
         return
 
     def jump_to_target_icon_cb( self, *kw ):
-        path = self.Theme.lookup_icon(self.selected_ico, 22, 0).get_filename()
+        path = self.Theme.lookup_icon(self.selected_icon_data[1], 22, 0).get_filename()
         rpath = os.path.realpath( path )
         rname = os.path.splitext( os.path.split( rpath )[1] )[0]
         found = False
 
         for row in self.IconDB.model:
-            if row[0].startswith( "<b>" ):
+            if row[0][0] == "<":
                 if row[0][3:-4] == rname:
                     self.view2.set_cursor( row.path )
                     found = True
@@ -535,33 +538,46 @@ class IconDatabase:
         self.conn = sqlite3.connect(":memory:")
         self.cursor = self.conn.cursor()
         self.cursor.execute(
-            """CREATE TABLE theme ( id INTEGER, name TEXT, context TEXT, standard BOOLEAN, islink BOOLEAN, scalable BOOLEAN )"""
+            "CREATE TABLE theme ( \
+                key TEXT, \
+                name TEXT, \
+                context TEXT, \
+                standard BOOLEAN, \
+                scalable BOOLEAN \
+                )"
             )
         return
 
     def db_load(self, Theme):
         i = 0
-        self.pb_cache = ()
+        self.pb_cache = {}
         contexts = Theme.list_contexts()
         for ctx in contexts:
-            ctx_icons = list(Theme.list_icons(ctx))
-            self.length += len(ctx_icons)
-            for ico in ctx_icons:
+            for ico in Theme.list_icons(ctx):
                 error = False
+
                 try:
-                    islink = os.path.islink( Theme.lookup_icon(ico, 22, 0).get_filename() )
-                    pb0 = Theme.load_icon(ico, 16, 0)
-                    pb1 = Theme.load_icon(ico, 24, 0)
-                    pb2 = Theme.load_icon(ico, 32, 0)
+                    k = Theme.lookup_icon(ico, 22, 0).get_filename()
+                    k = os.path.realpath( k )
+                    k = os.path.splitext( os.path.split(k)[1] )[0]
+                    if not self.pb_cache.has_key(k):
+                        pb16 = Theme.load_icon( ico, 16, 0 )
+                        pb24 = Theme.load_icon( ico, 24, 0 )
+                        pb32 = Theme.load_icon( ico, 32, 0 )
+                        self.pb_cache[k] = (pb16, pb24, pb32)
                 except:
                     error = True
                     print "Error loading icon %s, skipping..." % ico
+
                 if not error:
                     scalable = -1 in Theme.get_icon_sizes(ico)
                     standard = self.NamingSpec.isstandard(ctx, ico)
-                    self.cursor.execute("INSERT INTO theme VALUES (?,?,?,?,?,?)", (i, ico, ctx, standard, islink, scalable))
-                    self.pb_cache += ( (pb0, pb1, pb2), )
+                    self.cursor.execute(
+                        "INSERT INTO theme VALUES (?,?,?,?,?)",
+                        (k, ico, ctx, standard, scalable)
+                        )
                     i += 1
+        self.length = i
         return
 
     def db_reload(self, Theme):
@@ -636,8 +652,15 @@ class IconDatabase:
         if term == "":
             info = "<b>%s</b> %sicons in <b>%s</b>" % (num_of_results, std, self.ctx_filter)
         else:
-            info = "<b>%s</b> %sresults for <b>%s</b> in <b>%s</b>" % (num_of_results, std, term, self.ctx_filter)
+            info = "<b>%s</b> %sresults for <b>%s</b> in <b>%s</b>"
+            info % (num_of_results, std, term, self.ctx_filter)
         self.note.set_markup(info)
+        return
+
+    def update_pixbuf_cache( self, key, index, pixbuf ):
+        pb_list = list( self.IconDB.pb_cache[key] )
+        pb_list[index] = pixbuf
+        self.IconDB.pb_cache[key] = tuple( pb_list )
         return
 
     def set_target_model(self, model):
@@ -750,6 +773,7 @@ class DisplayModel:
         # Setup the icon islink cell-render
         self.renderer25 = gtk.CellRendererText()
         self.renderer25.set_property('xpad', 5)
+        self.renderer25.set_property('size-points', 7)
         self.renderer25.set_property('foreground',
                                      self.view2.get_style().text[gtk.STATE_INSENSITIVE].to_string()
                                      )
@@ -782,8 +806,6 @@ class DisplayModel:
         return self.view2
 
     def modify_view2_colors(self, colors):
-        # argh, lack of consistency between theme engines (Human i'm looking at you!)
-        # made me do less than graceful things!!!!
         bg, txt_norm, txt_insens, default = colors
         if default:
             bg_copy = bg
@@ -822,21 +844,21 @@ class ListDisplayer(threading.Thread):
     def run(self):
         """ Add content to cells """
         while not self.finished.isSet():
-            for index, ico, context, standard, islink, scalable in self.results:
-                pb0 = self.pb_cache[index][0]
-                pb1 = self.pb_cache[index][1]
-                pb2 = self.pb_cache[index][2]
+            for key, ico, context, standard, scalable in self.results:
+                pb0 = self.pb_cache[key][0]
+                pb1 = self.pb_cache[key][1]
+                pb2 = self.pb_cache[key][2]
 
                 notes = None
-                if standard:
-                    ico = "<b>%s</b>" % ico
-                if islink:
+                if key != ico:
                     notes = "Symlink"
                 if not scalable:
                     if not notes:
                         notes = "Fixed Only"
                     else:
                         notes += ", Fixed Only"
+                if standard:
+                    ico = "<b>%s</b>" % ico
 
                 gtk.gdk.threads_enter()
                 self.mdl.append( (ico, context, pb0, pb1, pb2, notes) )

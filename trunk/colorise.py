@@ -137,7 +137,7 @@ class IconDataPreview(gtk.DrawingArea):
         gtk.DrawingArea.__init__(self)
         self.path = path
         self.write_ok = w_ok
-        self.size_label = size
+        self.size = size
         self.default_path = path
         self.cur_path = None
         self.pre_path = None
@@ -198,6 +198,7 @@ class IconDataPreview(gtk.DrawingArea):
         return
 
     def set_icon(self, path):
+        self.pre_path = self.cur_path
         self.cur_path = path
         self.pixbuf = gtk.gdk.pixbuf_new_from_file(path)
         self.queue_draw()

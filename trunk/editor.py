@@ -16,7 +16,8 @@ import colorise
 
 
 class IconSetEditorDialog(gtk.Dialog):
-    def __init__(self, parent_window):
+    def __init__(self, parent_window, pb_update_cb ):
+        self.pb_update_cb = pb_update_cb
         gtk.Dialog.__init__(
             self,
             "Icon Set Properties",
@@ -36,38 +37,43 @@ class IconSetEditorDialog(gtk.Dialog):
         self.vbox.pack_start( self.notebook )
         return
 
-    def make_dialog(self, Theme, icon_name):
+    def make_dialog(self, Theme, iconset_data ):
+        iconset_context = iconset_data[2]
+        iconset_name = iconset_data[1]
+
         iconset = ()
-        sizes = list( Theme.get_icon_sizes(icon_name) )
+        sizes = list( Theme.get_icon_sizes(iconset_name) )
         sizes.sort()
 
         if sizes[0] == -1:
             del sizes[0]
             sizes += "scalable",
 
-        self.header.set_markup( "<b>%s</b>" % icon_name )
+        self.header.set_markup(
+            "<b>%s</b>\n<span size=\"small\">%s</span>" % ( iconset_name, iconset_context )
+            )
+        self.header.set_justify( gtk.JUSTIFY_CENTER )
 
         for size in sizes:
-            icon = self.make_and_append_page( Theme, icon_name, size )
+            icon = self.make_and_append_page( Theme, iconset_context, iconset_name, size )
             iconset += icon,
 
         self.vbox.show_all()
         response = self.run()
         if response == gtk.RESPONSE_APPLY:
-            for icon in iconset:
-                if icon.cur_path and icon.write_ok:
-                    self.backup_and_replace_icon(icon)
+            self.backup_and_replace_icon( iconset, iconset_data[0] )
         elif response == gtk.RESPONSE_CANCEL:
             pass
         self.destroy()
         return
 
-    def make_and_append_page( self, Theme, icon_name, size ):
+    def make_and_append_page( self, Theme, iconset_context, iconset_name, size ):
         if type(size) == int:
-            path = Theme.lookup_icon(icon_name, size, 0).get_filename()
-            size = "%sx%s" % (size, size)
+            path = Theme.lookup_icon(iconset_name, size, 0).get_filename()
+            tab_label = "%sx%s" % (size, size)
         else:
-            path = Theme.lookup_icon(icon_name, 64, 0).get_filename()
+            path = Theme.lookup_icon(iconset_name, 64, 0).get_filename()
+            tab_label = size
 
         page = gtk.VBox()
 
@@ -170,22 +176,44 @@ class IconSetEditorDialog(gtk.Dialog):
 
         selector = gtk.Button("Select a replacement icon")
         selector.set_image( gtk.image_new_from_stock(gtk.STOCK_OPEN, gtk.ICON_SIZE_MENU) )
-        selector.set_sensitive(False)
-        selector.connect("clicked", self.icon_chooser_dialog_cb)
+        if not icon.write_ok: selector.set_sensitive(False)
 
         resetter = gtk.Button()
         resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
         resetter.set_tooltip_text("Restore default icon")
         resetter.set_sensitive(False)
         resetter.set_size_request(36, -1)
-        resetter.connect("clicked", self.reset_default_icon_path_cb)
 
         redoer = gtk.Button()
         redoer.set_image( gtk.image_new_from_stock(gtk.STOCK_REDO, gtk.ICON_SIZE_MENU) )
         redoer.set_tooltip_text("Redo change")
         redoer.set_sensitive(False)
         redoer.set_size_request(36, -1)
-        redoer.connect("clicked", self.redo_cb)
+
+        selector.connect(
+            "clicked",
+            self.icon_chooser_dialog_cb,
+            resetter,
+            icon,
+            iconset_context,
+            iconset_name
+            )
+
+        redoer.connect(
+            "clicked",
+            self.redo_cb,
+            redoer,
+            resetter,
+            icon
+            )
+
+        resetter.connect(
+            "clicked",
+            self.reset_default_icon_path_cb,
+            redoer,
+            resetter,
+            icon
+            )
 
         btn_hbox = gtk.HBox()
         btn_hbox.set_border_width( 5 )
@@ -198,41 +226,54 @@ class IconSetEditorDialog(gtk.Dialog):
         page.pack_start( btn_hbox, False, False, padding=3 )
 
         self.notebook.append_page( page )
-        self.notebook.set_tab_label_text( page, size )
+        self.notebook.set_tab_label_text( page, tab_label )
         return icon
 
-    def backup_and_replace_icon(self, icon):
+    def backup_and_replace_icon(self, iconset, key):
         import time
         import shutil
         # backup
-        backup_dir = os.path.join(os.getcwd(), 'backup')
-        backup = os.path.join(
-            backup_dir,
-            os.path.split( icon.default_path)[1]+'.backup'+str( time.time() )
-            )
-        print '\nA backup has been made:\n', backup
-        if not os.path.isdir(backup_dir):
-            os.mkdir(backup_dir)
-        shutil.copy( icon.default_path, backup )
+        for icon in iconset:
+            if icon.cur_path and icon.cur_path != icon.default_path and icon.write_ok:
 
-        # actual file overwrite
-        shutil.copy( icon.cur_path, icon.default_path )
+                if icon.size == 16:
+                    self.pb_update_cb( key, 0, icon.pixbuf )
+                elif icon.size == 24:
+                    self.pb_update_cb( key, 1, icon.pixbuf )
+                elif icon.size == 32:
+                    self.pb_update_cb( key, 2, icon.pixbuf )
+
+                backup_dir = os.path.join(os.getcwd(), 'backup')
+                backup = os.path.join(
+                    backup_dir,
+                    os.path.split( icon.default_path)[1]+'.backup'+str( time.time() )
+                    )
+
+                # backup
+                print '\nA backup has been made:\n', backup
+                if not os.path.isdir(backup_dir):
+                    os.mkdir(backup_dir)
+                shutil.copy( icon.default_path, backup )
+
+                # actual file overwrite
+                shutil.copy( icon.cur_path, icon.default_path )
         return
 
-    def icon_chooser_dialog_cb(self, *kw):
-        e = self.encumbant_focus
+    def icon_chooser_dialog_cb(self, selector, resetter, icon, iconset_context, iconset_name ):
+        title = "Select a %sx%s/%s/%s icon..." % (icon.size, icon.size, iconset_context.lower(), iconset_name)
         chooser = gtk.FileChooserDialog(
-            title="Select a %s %s icon..." % (e.size_label, self.ico_name),
+            title,
             action=gtk.FILE_CHOOSER_ACTION_OPEN,
             buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN,gtk.RESPONSE_OK)
             )
+
         chooser.add_shortcut_folder("/usr/share/icons")
         home_icons = os.path.expanduser( "~/.icons" )
         if os.path.isdir( home_icons ):
             chooser.add_shortcut_folder( home_icons )
 
         fltr = gtk.FileFilter()
-        if e.size_label != "scalable":
+        if icon.size != "scalable":
             fltr.set_name("Images")
             fltr.add_mime_type("image/png")
             fltr.add_mime_type("image/jpeg")
@@ -256,26 +297,25 @@ class IconSetEditorDialog(gtk.Dialog):
 
         response = chooser.run()
         if response == gtk.RESPONSE_OK:
-            self.update_icon_preview(chooser.get_filename(), e)
+            self.update_icon_preview(chooser.get_filename(), resetter, icon)
         elif response == gtk.RESPONSE_CANCEL:
             pass
         chooser.destroy()
         return
 
-    def reset_default_icon_path_cb(self, *kw):
-        gobject.idle_add( self.encumbant_focus.reset_default_icon )
-        self.redoer.set_sensitive(True)
-        kw[0].set_sensitive(False)
+    def reset_default_icon_path_cb(self, event, redoer, resetter, icon):
+        gobject.idle_add( icon.reset_default_icon )
+        redoer.set_sensitive(True)
+        resetter.set_sensitive(False)
         return
 
-    def redo_cb(self, *kw):
-        e = self.encumbant_focus
-        gobject.idle_add(e.set_icon, e.pre_path)
-        self.resetter.set_sensitive(True)
-        kw[0].set_sensitive(False)
+    def redo_cb(self, event, redoer, resetter, icon):
+        gobject.idle_add(icon.set_icon, icon.pre_path)
+        resetter.set_sensitive(True)
+        redoer.set_sensitive(False)
         return
 
-    def update_icon_preview(self, path, e):
-        gobject.idle_add(e.set_icon, path)
-        self.resetter.set_sensitive(True)
+    def update_icon_preview(self, path, resetter, icon):
+        gobject.idle_add(icon.set_icon, path)
+        resetter.set_sensitive(True)
         return
