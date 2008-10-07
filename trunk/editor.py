@@ -11,8 +11,6 @@ pygtk.require("2.0")
 
 import os
 import gtk
-import gobject
-import colorise
 
 
 class IconSetEditorDialog(gtk.Dialog):
@@ -189,6 +187,7 @@ class IconSetEditorDialog(gtk.Dialog):
             info_table.attach( r_path, 1, 2, 1, 2, xpadding=10, ypadding=3 )
             info_table.attach( r_type, 1, 2, 2, 3, xpadding=10, ypadding=3 )
 
+        import colorise
         icon = colorise.IconDataPreview(
             path,
             size,
@@ -336,18 +335,18 @@ class IconSetEditorDialog(gtk.Dialog):
         return
 
     def reset_default_icon_path_cb(self, event, redoer, resetter, icon):
-        gobject.idle_add( icon.reset_default_icon )
+        icon.reset_default_icon()
         redoer.set_sensitive(True)
         resetter.set_sensitive(False)
         return
 
     def redo_cb(self, event, redoer, resetter, icon):
-        gobject.idle_add(icon.set_icon, icon.pre_path)
+        icon.set_icon( icon.pre_path )
         resetter.set_sensitive(True)
         redoer.set_sensitive(False)
         return
 
     def update_icon_preview(self, path, resetter, icon):
-        gobject.idle_add(icon.set_icon, path)
+        icon.set_icon( path )
         resetter.set_sensitive(True)
         return

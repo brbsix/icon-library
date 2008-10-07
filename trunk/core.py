@@ -11,13 +11,9 @@ pygtk.require("2.0")
 
 import os
 import gtk
-import pango
-import editor
 import gobject
 import sqlite3
-import colorise
 import threading
-import standards
 
 #Initializing the gtk's thread engine
 gtk.gdk.threads_init()
@@ -269,6 +265,8 @@ class IconLibraryController:
         return
 
     def gui_setup_color_swatches( self, btm_hbox2 ):
+        import colorise
+
         # swatchery
         # make color swatch to change the base color of the icon view
         self.encumbant_focus = None
@@ -368,11 +366,6 @@ class IconLibraryController:
         dialog.vbox.show_all()
         response = dialog.run()
         if response == gtk.RESPONSE_ACCEPT:
-            loading = gtk.Label()
-            loading.set_alignment( 0.5, 0.5 )
-            loading.set_markup(
-                "Loading icon data for the theme <b>%s</b>..." % Theme.info[1]
-                )
 
             Theme.set_theme( self.themes[theme_sel.get_active()] )
             self.IconDB.db_create(Theme)
@@ -418,6 +411,7 @@ class IconLibraryController:
         return
 
     def edit_iconset_dialog_cb(self, *kw):
+        import editor
         set_editor = editor.IconSetEditorDialog(
             self.root,
             self.IconDB.update_pixbuf_cache
@@ -571,6 +565,8 @@ class IconDatabase:
         to speed-up runtime usage. """
     def __init__(self):
         """ Both the DB and pixbuf cache are filled. """
+        import standards
+
         self.term = ""
         self.length = 0
         self.note = None
@@ -582,14 +578,14 @@ class IconDatabase:
         return
 
     def db_establish_new_connection(self):
-        create = True
+        create_table = True
         if os.path.exists( "/tmp/icondb.sqlite3" ):
-            create = False
+            create_table = False
 
         conn = sqlite3.connect("/tmp/icondb.sqlite3")
         cursor = conn.cursor()
 
-        if create:
+        if create_table:
             cursor.execute(
                 "CREATE TABLE theme ( \
                     key TEXT, \
@@ -803,8 +799,6 @@ class DisplayModel:
         view1 = gtk.TreeView(model)
         renderer10 = gtk.CellRendererText()
         renderer10.set_property("xpad", 5)
-        renderer10.set_property("wrap-width", 135)
-        renderer10.set_property("wrap-mode", pango.WRAP_WORD)
 
         column10 = gtk.TreeViewColumn("Context Filter", renderer10, markup=0)
 
@@ -813,6 +807,8 @@ class DisplayModel:
 
     def make_view2(self, model):
         """ Make the main view for the icon view list store """
+        import pango
+
         self.view2 = gtk.TreeView(model)
         self.view2.set_events( gtk.gdk.BUTTON_PRESS_MASK )
         # setup the icon name cell-renderer
