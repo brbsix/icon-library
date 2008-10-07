@@ -23,7 +23,6 @@ import standards
 gtk.gdk.threads_init()
 
 
-
 class IconLibraryController:
     """ The App class is the controller for this application """
     def __init__(self):
@@ -339,22 +338,17 @@ class IconLibraryController:
         dialog.vbox.pack_start(header, False, False, 5)
         dialog.vbox.pack_start(theme_sel, False, False, 10)
 
-        dialog.connect("response", self.theme_change_dialog_response_cb, theme_sel)
-        dialog.show_all()
-        return
-
-    def theme_change_dialog_response_cb(self, *kw):
-        if kw[-2] == -2 or kw[-2] == -4:
-            kw[0].destroy()
-        elif kw[-2] == -3:
-            self.Theme.set_theme( self.themes[kw[-1].get_active()] )
-            self.IconDB.db_reload(self.Theme)
+        dialog.vbox.show_all()
+        response = dialog.run()
+        if response == gtk.RESPONSE_ACCEPT:
+            self.Theme.set_theme( self.themes[theme_sel.get_active()] )
+            self.IconDB.db_create(self.Theme)
             # set theme avatar
             self.gui_make_theme_avatar()
             self.gui_make_theme_header()
             # fire off a search to fill icon view on new theme selection
             self.IconDB.do_search(self.srch_entry, "like")
-            kw[0].destroy()
+        dialog.destroy()
         return
 
     def theme_filter_by_standard_names_cb(self, *kw):
@@ -538,7 +532,6 @@ class IconDatabase:
         to speed-up runtime usage. """
     def __init__(self):
         """ Both the DB and pixbuf cache are filled. """
-        self.completed = False
         self.term = ""
         self.length = 0
         self.note = None
@@ -606,23 +599,19 @@ class IconDatabase:
                         )
                     i += 1
             j += 1
-            gtk.gdk.threads_enter()
-            progressbar.set_fraction( j / total )
-            gtk.gdk.threads_leave()
+            if progressbar:
+                gtk.gdk.threads_enter()
+                progressbar.set_fraction( j / total )
+                gtk.gdk.threads_leave()
 
         conn.commit()
         cursor.close()
         self.length = i
-        self.completed = True
         return
 
     def db_load( self ):
         self.conn = sqlite3.connect("/tmp/icondb.sqlite3")
         self.cursor = self.conn.cursor()
-        return
-
-    def db_reload(self, Theme):
-        print 'Not implemented yet: db_reload()'
         return
 
     def do_search(self, entry, mode="like"):
