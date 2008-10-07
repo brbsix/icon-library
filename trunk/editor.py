@@ -55,31 +55,29 @@ class IconSetEditorDialog(gtk.Dialog):
             )
         self.header.set_justify( gtk.JUSTIFY_CENTER )
 
-        subtle_color = self.get_style().text[gtk.STATE_INSENSITIVE].to_string()
+        l_color = self.get_style().text[gtk.STATE_INSENSITIVE].to_string()
         for size in sizes:
             icon = self.make_and_append_page(
                 Theme,
                 iconset_context,
                 iconset_name,
                 size,
-                subtle_color
+                l_color
                 )
             iconset += icon,
 
-        islink = gtk.CheckButton( "Save as symlinks", False )
-        islink.set_active( True )
-        self.vbox.pack_start( islink, False, False, padding=3 )
+        self.makelinks = gtk.CheckButton( "Save as symlinks", False )
+        self.makelinks.set_active( True )
+        self.vbox.pack_start( self.makelinks, False, False, padding=3 )
 
         self.vbox.show_all()
         response = self.run()
         if response == gtk.RESPONSE_APPLY:
-            self.backup_and_replace_icon( iconset, iconset_data[0] )
-        elif response == gtk.RESPONSE_CANCEL:
-            pass
+            self.replace_icon( iconset, iconset_data[0] )
         self.destroy()
         return
 
-    def make_and_append_page( self, Theme, iconset_context, iconset_name, size, subtle_color ):
+    def make_and_append_page( self, Theme, iconset_context, iconset_name, size, l_color ):
         if type(size) == int:
             path = Theme.lookup_icon(iconset_name, size, 0).get_filename()
             tab_label = "%sx%s" % (size, size)
@@ -97,10 +95,10 @@ class IconSetEditorDialog(gtk.Dialog):
             l_link = gtk.Label()
             l_targ = gtk.Label()
 
-            l_name.set_markup( "<span foreground=\"%s\"><b>Name</b></span>" % subtle_color )
-            l_type.set_markup( "<span foreground=\"%s\"><b>Type</b></span>" % subtle_color )
-            l_link.set_markup( "<span foreground=\"%s\"><b>Path</b></span>" % subtle_color )
-            l_targ.set_markup( "<span foreground=\"%s\"><b>Target</b></span>" % subtle_color )
+            l_name.set_markup( "<span foreground=\"%s\"><b>Name</b></span>" % l_color )
+            l_type.set_markup( "<span foreground=\"%s\"><b>Type</b></span>" % l_color )
+            l_link.set_markup( "<span foreground=\"%s\"><b>Path</b></span>" % l_color )
+            l_targ.set_markup( "<span foreground=\"%s\"><b>Target</b></span>" % l_color )
 
             l_name.set_size_request(48, -1)
             l_type.set_size_request(48, -1)
@@ -129,9 +127,11 @@ class IconSetEditorDialog(gtk.Dialog):
             r_path.set_alignment(0, 0.5)
             r_targ.set_alignment(0, 0.5)
 
+            r_name.set_size_request(225, -1)
             r_path.set_size_request(225, -1)
             r_targ.set_size_request(225, -1)
 
+            r_name.set_line_wrap( True )
             r_path.set_line_wrap( True )
             r_targ.set_line_wrap( True )
 
@@ -150,9 +150,9 @@ class IconSetEditorDialog(gtk.Dialog):
             l_type = gtk.Label()
             l_path = gtk.Label()
 
-            l_name.set_markup( "<span foreground=\"%s\"><b>Name</b></span>" % subtle_color )
-            l_type.set_markup( "<span foreground=\"%s\"><b>Type</b></span>" % subtle_color )
-            l_path.set_markup( "<span foreground=\"%s\"><b>Path</b></span>" % subtle_color )
+            l_name.set_markup( "<span foreground=\"%s\"><b>Name</b></span>" % l_color )
+            l_type.set_markup( "<span foreground=\"%s\"><b>Type</b></span>" % l_color )
+            l_path.set_markup( "<span foreground=\"%s\"><b>Path</b></span>" % l_color )
 
             l_name.set_size_request(48, -1)
             l_type.set_size_request(48, -1)
@@ -176,7 +176,10 @@ class IconSetEditorDialog(gtk.Dialog):
             r_type.set_alignment(0, 0.5)
             r_path.set_alignment(0, 0.5)
 
+            r_name.set_size_request(225, -1)
             r_path.set_size_request(225, -1)
+
+            r_name.set_line_wrap( True )
             r_path.set_line_wrap( True )
 
             r_name.set_selectable( True )
@@ -255,10 +258,10 @@ class IconSetEditorDialog(gtk.Dialog):
         self.notebook.set_tab_label_text( page, tab_label )
         return icon
 
-    def backup_and_replace_icon(self, iconset, key):
+    def replace_icon(self, iconset, key):
         import time
         import shutil
-        # backup
+
         for icon in iconset:
             if icon.cur_path and icon.cur_path != icon.default_path and icon.write_ok:
 
@@ -279,14 +282,19 @@ class IconSetEditorDialog(gtk.Dialog):
                 print '\nA backup has been made:\n', backup
                 if not os.path.isdir(backup_dir):
                     os.mkdir(backup_dir)
-                shutil.copy( icon.default_path, backup )
+                shutil.move( icon.default_path, backup )
 
-                # actual file overwrite
-                shutil.copy( icon.cur_path, icon.default_path )
+                if self.makelinks.get_active():
+                    # replace icon with a symlink to new icon
+                    os.symlink( icon.cur_path, icon.default_path )
+                else:
+                    shutil.copy( icon.cur_path, icon.default_path )
         return
 
     def icon_chooser_dialog_cb(self, selector, resetter, icon, iconset_context, iconset_name ):
-        title = "Select a %sx%s/%s/%s icon..." % (icon.size, icon.size, iconset_context.lower(), iconset_name)
+        title = "Select a %sx%s/%s/%s icon..." 
+        title = title % (icon.size, icon.size, iconset_context.lower(), iconset_name)
+
         chooser = gtk.FileChooserDialog(
             title,
             action=gtk.FILE_CHOOSER_ACTION_OPEN,
@@ -324,8 +332,6 @@ class IconSetEditorDialog(gtk.Dialog):
         response = chooser.run()
         if response == gtk.RESPONSE_OK:
             self.update_icon_preview(chooser.get_filename(), resetter, icon)
-        elif response == gtk.RESPONSE_CANCEL:
-            pass
         chooser.destroy()
         return
 

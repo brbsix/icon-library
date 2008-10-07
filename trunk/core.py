@@ -106,14 +106,22 @@ class IconLibraryController:
             args=(Theme, progressbar)
             )
         t.start()
-        gobject.timeout_add(200, self.icon_db_completion_checker, t)
+        gobject.timeout_add(
+            200,
+            self.icon_db_completion_checker,
+            t,
+            self.gui_setup_browser
+            )
         return
 
-    def icon_db_completion_checker(self, thread):
+    def icon_db_completion_checker(self, thread, func, args=None):
         if thread.isAlive():
             return True
         else:
-            self.gui_setup_browser()
+            if args:
+                func( *args )
+            else:
+                func()
             return False
 
     def gui_setup_browser(self):
@@ -146,7 +154,7 @@ class IconLibraryController:
         IconDB.set_target_model(self.mdl2)
 
         self.srch_entry.connect("activate", IconDB.do_search, "like")
-        srch_btn.connect("clicked", IconDB.do_search, self.srch_entry, "like")
+        srch_btn.connect("clicked", self.search_cb)
 
         # set initial notes based on initial loading of icon theme database
         self.srch_note.set_markup(
@@ -180,7 +188,10 @@ class IconLibraryController:
 
         # check button that filters out icons whose names are not in the Standard Naming Spec
         self.stndrd_check = gtk.CheckButton(label="Standard icons only", use_underline=False)
-        self.stndrd_check.set_tooltip_text("Only show icons that conform to the\nfreedesktop.org Icon Naming Specification")
+        self.stndrd_check.set_tooltip_text(
+            "Only show icons that conform to the\nfreedesktop.org Icon Naming Specification"
+            )
+
         # filter the view for icon names matching the search term
         self.srch_entry = gtk.Entry(60)
         srch_btn = gtk.Button(stock=gtk.STOCK_FIND)
@@ -320,34 +331,58 @@ class IconLibraryController:
         # list all discoverable themes in a combo box
         theme_sel = gtk.combo_box_new_text()
         theme_sel.set_tooltip_text("Select an icon theme")
+
         i, active = 0, 0
+        Theme = self.Theme
         for theme, name, p in self.themes:
             name = name or "Unnamed"
-            if theme == self.Theme.default:
+            if theme == Theme.default:
                 name += " (default)"
                 active = i
             theme_sel.append_text(name)
             i += 1
         theme_sel.set_active(active)
-        theme_sel.set_tooltip_text("Select an icon theme")
 
-        header = gtk.Label()
-        header.set_justify(gtk.JUSTIFY_CENTER)
-        header.set_text("Select a new icon theme to view")
+        # list all discoverable themes in a combo box 
+        theme_sel = gtk.combo_box_new_text() 
+        theme_sel.set_tooltip_text("Select an icon theme") 
+        i, active = 0, 0 
+        for theme, name, p in self.themes: 
+            name = name or "Unnamed" 
+            if theme == self.Theme.default:
+                name += " (default)"
+                active = i
+            theme_sel.append_text(name)
+            i += 1
 
-        dialog.vbox.pack_start(header, False, False, 5)
+        theme_sel.set_active(active)
+        theme_sel.set_tooltip_text("Select an icon theme") 
+
+        header = gtk.Label() 
+        header.set_alignment( 0.5, 0.5 )
+        header.set_text("Select a new icon theme to view") 
+
+        dialog.vbox.pack_start(header, False, False, 5) 
         dialog.vbox.pack_start(theme_sel, False, False, 10)
 
         dialog.vbox.show_all()
         response = dialog.run()
         if response == gtk.RESPONSE_ACCEPT:
-            self.Theme.set_theme( self.themes[theme_sel.get_active()] )
-            self.IconDB.db_create(self.Theme)
+            loading = gtk.Label()
+            loading.set_alignment( 0.5, 0.5 )
+            loading.set_markup(
+                "Loading icon data for the theme <b>%s</b>..." % Theme.info[1]
+                )
+
+            Theme.set_theme( self.themes[theme_sel.get_active()] )
+            self.IconDB.db_create(Theme)
+
             # set theme avatar
             self.gui_make_theme_avatar()
             self.gui_make_theme_header()
             # fire off a search to fill icon view on new theme selection
             self.IconDB.do_search(self.srch_entry, "like")
+
         dialog.destroy()
         return
 
@@ -435,6 +470,10 @@ class IconLibraryController:
         if response == gtk.RESPONSE_OK:
             pass
         dialog.destroy()
+        return
+
+    def search_cb( self, *kw ):
+        self.IconDB.do_search( self.srch_entry, "like" )
         return
 
     def filter_by_context_cb(self, *kw):
@@ -687,9 +726,9 @@ class IconDatabase:
         return
 
     def update_pixbuf_cache( self, key, index, pixbuf ):
-        pb_list = list( self.IconDB.pb_cache[key] )
+        pb_list = list( self.pb_cache[key] )
         pb_list[index] = pixbuf
-        self.IconDB.pb_cache[key] = tuple( pb_list )
+        self.pb_cache[key] = tuple( pb_list )
         return
 
     def set_target_model(self, model):
