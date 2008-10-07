@@ -10,7 +10,6 @@ import pygtk
 pygtk.require("2.0")
 
 import os
-import sys
 import gtk
 import pango
 import editor
@@ -46,8 +45,10 @@ class IconLibraryController:
         self.Theme = IconTheme()
         # start the greeter gui
         self.gui_setup_greeter(self.Theme)
-        gtk.main()
         return
+
+    def run(self):
+        gtk.main()
 
     def gui_setup_greeter(self, Theme):
         """ Greets the user and offers a range of themes to choose from """
@@ -96,26 +97,32 @@ class IconLibraryController:
         go.connect("clicked", self.ok_cb, vbox, theme_sel, (hbox2, welcome))
         return
 
-    def init_important_stuff(self, Theme):
+    def init_icon_db(self, Theme, progressbar):
         """ Load Treeview models and views and load the icon database.
             When completed load the main gui """
         self.IconDB = IconDatabase()
-        self.IconDB.db_load(Theme)
-        self.Store = InfoModel(Theme)
+
+        t = threading.Thread(
+            target=self.IconDB.db_create,
+            args=(Theme, progressbar)
+            )
+        t.start()
+        gobject.timeout_add(200, self.icon_db_completion_checker, t)
+        return
+
+    def icon_db_completion_checker(self, thread):
+        if thread.isAlive():
+            return True
+        else:
+            self.gui_setup_browser()
+            return False
+
+    def gui_setup_browser(self):
+        self.IconDB.db_load()
+        self.Store = InfoModel(self.Theme)
         self.Display = DisplayModel()
 
-        # load main gui
-        self.gui_setup_main(
-            self.Theme,
-            self.IconDB,
-            self.Store,
-            self.Display
-            )
-        return False    # run once, called by an gobject idle process
-
-    def gui_setup_main(self, Theme, IconDB, Store, Display):
-        """ The main gui, home to everything worth while """
-        # TODO: where possible transition layout stuff from v/hboxes to gtk.ButtonBox
+        IconDB, Store, Display = self.IconDB, self.Store, self.Display
         vbox = gtk.VBox()
 
         # remove greeter widgets
@@ -139,7 +146,7 @@ class IconLibraryController:
         IconDB.set_target_note(self.srch_note)
         IconDB.set_target_model(self.mdl2)
 
-        self.srch_entry.connect("activate", IconDB.do_search, self.srch_entry, "like")
+        self.srch_entry.connect("activate", IconDB.do_search, "like")
         srch_btn.connect("clicked", IconDB.do_search, self.srch_entry, "like")
 
         # set initial notes based on initial loading of icon theme database
@@ -444,22 +451,27 @@ class IconLibraryController:
         gobject.idle_add(self.IconDB.do_search, self.srch_entry, "like")
         return
 
-    def ok_cb(self, *kw):
+    def ok_cb(self, btn, vbox, theme_sel, insens_widgets):
         """ Begin loading the theme chosen at the greeter gui """
-        for w in kw[-1]:
+        for w in insens_widgets:
             w.set_sensitive(False)
 
         Theme = self.Theme
-        Theme.set_theme( self.themes[kw[-2].get_active()] )
+        Theme.set_theme( self.themes[theme_sel.get_active()] )
 
         loading = gtk.Label()
         loading.set_justify(gtk.JUSTIFY_CENTER)
         loading.set_markup(
             "Loading icon data for the theme <b>%s</b>...\nThis may take several moments." % Theme.info[1]
             )
-        kw[-3].pack_start(loading, padding=15)
+        vbox.pack_start(loading, padding=15)
         loading.show()
-        gobject.idle_add(self.init_important_stuff, Theme)
+
+        progress = gtk.ProgressBar()
+        vbox.pack_end( progress )
+        progress.show()
+
+        self.init_icon_db( Theme, progress )
         return
 
     def destroy_cb(self, *kw):
@@ -526,6 +538,7 @@ class IconDatabase:
         to speed-up runtime usage. """
     def __init__(self):
         """ Both the DB and pixbuf cache are filled. """
+        self.completed = False
         self.term = ""
         self.length = 0
         self.note = None
@@ -534,24 +547,39 @@ class IconDatabase:
         self.standard_only = False
         self.ctx_filter = "<b>All Contexts</b>"
         self.NamingSpec = standards.StandardIconNamingSpec()
-
-        self.conn = sqlite3.connect(":memory:")
-        self.cursor = self.conn.cursor()
-        self.cursor.execute(
-            "CREATE TABLE theme ( \
-                key TEXT, \
-                name TEXT, \
-                context TEXT, \
-                standard BOOLEAN, \
-                scalable BOOLEAN \
-                )"
-            )
         return
 
-    def db_load(self, Theme):
-        i = 0
+    def db_establish_new_connection(self):
+        create = True
+        if os.path.exists( "/tmp/icondb.sqlite3" ):
+            create = False
+
+        conn = sqlite3.connect("/tmp/icondb.sqlite3")
+        cursor = conn.cursor()
+
+        if create:
+            cursor.execute(
+                "CREATE TABLE theme ( \
+                    key TEXT, \
+                    name TEXT, \
+                    context TEXT, \
+                    standard BOOLEAN, \
+                    scalable BOOLEAN \
+                    )"
+                )
+        else:
+            cursor.execute("DELETE FROM theme")
+
+        return conn, cursor
+
+    def db_create(self, Theme, progressbar=None):
+        conn, cursor = self.db_establish_new_connection()
+        i, j = 0, 0
+
         self.pb_cache = {}
         contexts = Theme.list_contexts()
+        total = float( len( contexts ) )
+
         for ctx in contexts:
             for ico in Theme.list_icons(ctx):
                 error = False
@@ -572,30 +600,42 @@ class IconDatabase:
                 if not error:
                     scalable = -1 in Theme.get_icon_sizes(ico)
                     standard = self.NamingSpec.isstandard(ctx, ico)
-                    self.cursor.execute(
+                    cursor.execute(
                         "INSERT INTO theme VALUES (?,?,?,?,?)",
                         (k, ico, ctx, standard, scalable)
                         )
                     i += 1
+            j += 1
+            gtk.gdk.threads_enter()
+            progressbar.set_fraction( j / total )
+            gtk.gdk.threads_leave()
+
+        conn.commit()
+        cursor.close()
         self.length = i
+        self.completed = True
+        return
+
+    def db_load( self ):
+        self.conn = sqlite3.connect("/tmp/icondb.sqlite3")
+        self.cursor = self.conn.cursor()
         return
 
     def db_reload(self, Theme):
-        self.cursor.execute("DELETE FROM theme")
-        self.db_load(Theme)
+        print 'Not implemented yet: db_reload()'
         return
 
-    def do_search(self, *kw):
+    def do_search(self, entry, mode="like"):
         """ do_search provides basic search functionality.
             It allows one term, the text taken from the gtk.Entry, plus a context filter. """
         if len(threading.enumerate()) == 1:
-            if type( kw[-2] ) == str:
-                self.term = kw[-2]
+            if type( entry ) == str:
+                self.term = entry
             else:
-                self.term = kw[-2].get_text()
-            if kw[-1] == "like":
+                self.term = entry.get_text()
+            if mode == "like":
                 query = self.query_like_search( self.term )
-            elif kw[-1] == "exact":
+            elif mode == "exact":
                 query = self.query_exact_search( self.term )
 
             try:
@@ -653,7 +693,7 @@ class IconDatabase:
             info = "<b>%s</b> %sicons in <b>%s</b>" % (num_of_results, std, self.ctx_filter)
         else:
             info = "<b>%s</b> %sresults for <b>%s</b> in <b>%s</b>"
-            info % (num_of_results, std, term, self.ctx_filter)
+            info = info % (num_of_results, std, term, self.ctx_filter)
         self.note.set_markup(info)
         return
 
@@ -774,9 +814,10 @@ class DisplayModel:
         self.renderer25 = gtk.CellRendererText()
         self.renderer25.set_property('xpad', 5)
         self.renderer25.set_property('size-points', 7)
-        self.renderer25.set_property('foreground',
-                                     self.view2.get_style().text[gtk.STATE_INSENSITIVE].to_string()
-                                     )
+        self.renderer25.set_property(
+            'foreground',
+            self.view2.get_style().text[gtk.STATE_INSENSITIVE].to_string()
+            )
 
         # Connect columns to columns in icon view model
         column20 = gtk.TreeViewColumn("Name", self.renderer20, markup=0)

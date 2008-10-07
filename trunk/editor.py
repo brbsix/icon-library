@@ -29,12 +29,13 @@ class IconSetEditorDialog(gtk.Dialog):
         self.set_has_separator( False )
         self.header = gtk.Label()
         self.header.set_alignment( 0.5, 0.5 )
-        self.vbox.pack_start( self.header, padding=13 )
+        self.vbox.pack_start( self.header, padding=6 )
 
         self.notebook = gtk.Notebook()
+        self.notebook.set_tab_pos( gtk.POS_BOTTOM )
         self.notebook.set_size_request( 300, -1 )
         self.notebook.set_scrollable( True )
-        self.vbox.pack_start( self.notebook )
+        self.vbox.pack_start( self.notebook, padding=8 )
         return
 
     def make_dialog(self, Theme, iconset_data ):
@@ -54,9 +55,20 @@ class IconSetEditorDialog(gtk.Dialog):
             )
         self.header.set_justify( gtk.JUSTIFY_CENTER )
 
+        subtle_color = self.get_style().text[gtk.STATE_INSENSITIVE].to_string()
         for size in sizes:
-            icon = self.make_and_append_page( Theme, iconset_context, iconset_name, size )
+            icon = self.make_and_append_page(
+                Theme,
+                iconset_context,
+                iconset_name,
+                size,
+                subtle_color
+                )
             iconset += icon,
+
+        islink = gtk.CheckButton( "Save as symlinks", False )
+        islink.set_active( True )
+        self.vbox.pack_start( islink, False, False, padding=3 )
 
         self.vbox.show_all()
         response = self.run()
@@ -67,7 +79,7 @@ class IconSetEditorDialog(gtk.Dialog):
         self.destroy()
         return
 
-    def make_and_append_page( self, Theme, iconset_context, iconset_name, size ):
+    def make_and_append_page( self, Theme, iconset_context, iconset_name, size, subtle_color ):
         if type(size) == int:
             path = Theme.lookup_icon(iconset_name, size, 0).get_filename()
             tab_label = "%sx%s" % (size, size)
@@ -80,10 +92,15 @@ class IconSetEditorDialog(gtk.Dialog):
         if os.path.islink( path ):
             info_table = gtk.Table(rows=4, columns=2)
 
-            l_name = gtk.Label("Name:")
-            l_type = gtk.Label("Type:")
-            l_link = gtk.Label("Path:")
-            l_targ = gtk.Label("Target:")
+            l_name = gtk.Label()
+            l_type = gtk.Label()
+            l_link = gtk.Label()
+            l_targ = gtk.Label()
+
+            l_name.set_markup( "<span foreground=\"%s\"><b>Name</b></span>" % subtle_color )
+            l_type.set_markup( "<span foreground=\"%s\"><b>Type</b></span>" % subtle_color )
+            l_link.set_markup( "<span foreground=\"%s\"><b>Path</b></span>" % subtle_color )
+            l_targ.set_markup( "<span foreground=\"%s\"><b>Target</b></span>" % subtle_color )
 
             l_name.set_size_request(48, -1)
             l_type.set_size_request(48, -1)
@@ -96,14 +113,14 @@ class IconSetEditorDialog(gtk.Dialog):
             l_targ.set_alignment(1, 0.5)
 
             info_table.attach( l_name, 0, 1, 0, 1, xoptions=gtk.SHRINK )
-            info_table.attach( l_type, 0, 1, 1, 2, xoptions=gtk.SHRINK )
-            info_table.attach( l_link, 0, 1, 2, 3, xoptions=gtk.SHRINK )
+            info_table.attach( l_link, 0, 1, 1, 2, xoptions=gtk.SHRINK )
+            info_table.attach( l_type, 0, 1, 2, 3, xoptions=gtk.SHRINK )
             info_table.attach( l_targ, 0, 1, 3, 4, xoptions=gtk.SHRINK )
 
             p,n = os.path.split(path)
 
             r_name = gtk.Label(n)
-            r_type = gtk.Label("todo")
+            r_type = gtk.Label("Linked %s" % os.path.splitext(n)[1][1:].upper() )
             r_path = gtk.Label(p)
             r_targ = gtk.Label( os.path.realpath(path) )
 
@@ -122,16 +139,20 @@ class IconSetEditorDialog(gtk.Dialog):
             r_path.set_selectable( True )
             r_targ.set_selectable( True )
 
-            info_table.attach( r_name, 1, 2, 0, 1, xpadding=10, ypadding=2 )
-            info_table.attach( r_type, 1, 2, 1, 2, xpadding=10, ypadding=2 )
-            info_table.attach( r_path, 1, 2, 2, 3, xpadding=10, ypadding=2 )
-            info_table.attach( r_targ, 1, 2, 3, 4, xpadding=10, ypadding=20 )
+            info_table.attach( r_name, 1, 2, 0, 1, xpadding=10, ypadding=3 )
+            info_table.attach( r_path, 1, 2, 1, 2, xpadding=10, ypadding=3 )
+            info_table.attach( r_type, 1, 2, 2, 3, xpadding=10, ypadding=3 )
+            info_table.attach( r_targ, 1, 2, 3, 4, xpadding=10, ypadding=3 )
         else:
             info_table = gtk.Table(rows=3, columns=2)
 
-            l_name = gtk.Label("Name:")
-            l_type = gtk.Label("Type:")
-            l_path = gtk.Label("Path:")
+            l_name = gtk.Label()
+            l_type = gtk.Label()
+            l_path = gtk.Label()
+
+            l_name.set_markup( "<span foreground=\"%s\"><b>Name</b></span>" % subtle_color )
+            l_type.set_markup( "<span foreground=\"%s\"><b>Type</b></span>" % subtle_color )
+            l_path.set_markup( "<span foreground=\"%s\"><b>Path</b></span>" % subtle_color )
 
             l_name.set_size_request(48, -1)
             l_type.set_size_request(48, -1)
@@ -142,13 +163,13 @@ class IconSetEditorDialog(gtk.Dialog):
             l_path.set_alignment(1, 0.5)
 
             info_table.attach( l_name, 0, 1, 0, 1, xoptions=gtk.SHRINK )
-            info_table.attach( l_type, 0, 1, 1, 2, xoptions=gtk.SHRINK )
-            info_table.attach( l_path, 0, 1, 2, 3, xoptions=gtk.SHRINK )
+            info_table.attach( l_path, 0, 1, 1, 2, xoptions=gtk.SHRINK )
+            info_table.attach( l_type, 0, 1, 2, 3, xoptions=gtk.SHRINK )
 
             p,n = os.path.split(path)
 
             r_name = gtk.Label(n)
-            r_type = gtk.Label("todo")
+            r_type = gtk.Label("%s" % os.path.splitext(n)[1][1:].upper() )
             r_path = gtk.Label(p)
 
             r_name.set_alignment(0, 0.5)
@@ -161,9 +182,9 @@ class IconSetEditorDialog(gtk.Dialog):
             r_name.set_selectable( True )
             r_path.set_selectable( True )
 
-            info_table.attach( r_name, 1, 2, 0, 1, xpadding=10, ypadding=2 )
-            info_table.attach( r_type, 1, 2, 1, 2, xpadding=10, ypadding=2 )
-            info_table.attach( r_path, 1, 2, 2, 3, xpadding=10, ypadding=2 )
+            info_table.attach( r_name, 1, 2, 0, 1, xpadding=10, ypadding=3 )
+            info_table.attach( r_path, 1, 2, 1, 2, xpadding=10, ypadding=3 )
+            info_table.attach( r_type, 1, 2, 2, 3, xpadding=10, ypadding=3 )
 
         icon = colorise.IconDataPreview(
             path,
@@ -174,21 +195,25 @@ class IconSetEditorDialog(gtk.Dialog):
         icon_hbox = gtk.HBox()
         icon_hbox.pack_start( icon, padding=5 )
 
-        selector = gtk.Button("Select a replacement icon")
+        selector = gtk.Button("Select replacement icon")
         selector.set_image( gtk.image_new_from_stock(gtk.STOCK_OPEN, gtk.ICON_SIZE_MENU) )
         if not icon.write_ok: selector.set_sensitive(False)
+
+        guesser = gtk.Button()
+        guesser.set_image( gtk.image_new_from_stock(gtk.STOCK_SORT_DESCENDING, gtk.ICON_SIZE_MENU) )
+        guesser.set_tooltip_text("Guess other replacement icons")
+        guesser.set_sensitive(False)
 
         resetter = gtk.Button()
         resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
         resetter.set_tooltip_text("Restore default icon")
         resetter.set_sensitive(False)
-        resetter.set_size_request(36, -1)
 
         redoer = gtk.Button()
         redoer.set_image( gtk.image_new_from_stock(gtk.STOCK_REDO, gtk.ICON_SIZE_MENU) )
         redoer.set_tooltip_text("Redo change")
         redoer.set_sensitive(False)
-        redoer.set_size_request(36, -1)
+        redoer.set_size_request(24, -1)
 
         selector.connect(
             "clicked",
@@ -218,6 +243,7 @@ class IconSetEditorDialog(gtk.Dialog):
         btn_hbox = gtk.HBox()
         btn_hbox.set_border_width( 5 )
         btn_hbox.pack_start(selector)
+        btn_hbox.pack_start(guesser)
         btn_hbox.pack_start(resetter)
         btn_hbox.pack_start(redoer)
 
