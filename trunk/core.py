@@ -253,7 +253,6 @@ class IconLibraryController:
         return self.view1, self.view2
 
     def gui_setup_iconview_popup( self ):
-        # view2 popup menu
         self.popup = gtk.Menu()
         self.popup.show_all()
         edit_action = gtk.Action("Editor", "Icon set properties", None, gtk.STOCK_EDIT)
@@ -265,18 +264,43 @@ class IconLibraryController:
         return
 
     def gui_setup_color_swatches( self, btm_hbox2 ):
-        import colorise
+        import custom_widgets
 
-        # swatchery
-        # make color swatch to change the base color of the icon view
         self.encumbant_focus = None
         style = self.view2.get_style()
         cb = self.gui_bg_color_change_cb
 
-        color_sel0 = colorise.ColorSwatch(cb, style, tip="Default", default=True)
-        color_sel1 = colorise.ColorSwatch(cb,  style, bg="#FFFFFF", tip="White")
-        color_sel2 = colorise.ColorSwatch(cb,  style, bg="#9C9C9C", txt2="#525252", tip="Grey")
-        color_sel3 = colorise.ColorSwatch(cb,  style, bg="#525252", txt1="#E6E6E6", txt2="#9E9E9E", tip="Dark grey")
+        color_sel0 = custom_widgets.ColorSwatch(
+            cb,
+            style,
+            tip="Default",
+            default=True
+            )
+
+        color_sel1 = custom_widgets.ColorSwatch(
+            cb,
+            style,
+            bg="#FFFFFF",
+            tip="White"
+            )
+
+        color_sel2 = custom_widgets.ColorSwatch(
+            cb,
+            style,
+            bg="#9C9C9C",
+            txt2="#525252",
+            tip="Grey"
+            )
+
+        color_sel3 = custom_widgets.ColorSwatch(
+            cb,
+            style,
+            bg="#525252",
+            txt1="#E6E6E6",
+            txt2="#9E9E9E",
+            tip="Dark grey"
+            )
+
         self.encumbant_focus = color_sel0.give_focus()
 
         btm_hbox2.pack_end(color_sel3, False)

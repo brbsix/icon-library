@@ -187,8 +187,8 @@ class IconSetEditorDialog(gtk.Dialog):
             info_table.attach( r_path, 1, 2, 1, 2, xpadding=10, ypadding=3 )
             info_table.attach( r_type, 1, 2, 2, 3, xpadding=10, ypadding=3 )
 
-        import colorise
-        icon = colorise.IconDataPreview(
+        import custom_widgets
+        icon = custom_widgets.IconDataPreview(
             path,
             size,
             w_ok=os.access(path, os.W_OK),

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Filename: colorise.py
+# Filename: custom_widgets.py
 
 __licence__ = "LGPLv3"
 __copyright__ = "Matthew McGowan, 2008"
