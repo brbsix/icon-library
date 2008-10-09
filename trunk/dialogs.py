@@ -88,15 +88,17 @@ class TargetNotFoundDialog:
 
 
 class ThemeChangeDialog:
-    def run(self, Theme, root):
-        dialog = gtk.Dialog(
+    def __init__(self, root):
+        self.dialog = gtk.Dialog(
             "Change Icon Theme",
             root,
             gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
             (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT)
             )
-        dialog.set_has_separator(False)
+        self.dialog.set_has_separator(False)
+        return
 
+    def run(self, Theme):
         # list all discoverable themes in a combo box 
         theme_sel = gtk.combo_box_new_text() 
         theme_sel.set_tooltip_text("Select an icon theme")
@@ -115,9 +117,10 @@ class ThemeChangeDialog:
         theme_sel.set_tooltip_text("Select an icon theme") 
 
         header = gtk.Label() 
-        header.set_alignment( 0.5, 0.5 )
+        header.set_justify( gtk.JUSTIFY_CENTER )
         header.set_text("Select a new icon theme to view") 
 
+        dialog = self.dialog
         dialog.vbox.pack_start(header, False, False, 8) 
         dialog.vbox.pack_start(theme_sel, False, False, 8)
 
@@ -125,11 +128,22 @@ class ThemeChangeDialog:
         response = dialog.run()
 
         if response == gtk.RESPONSE_ACCEPT:
-            dialog.destroy()
-            return themes[theme_sel.get_active()]
+            new_theme = themes[theme_sel.get_active()]
+
+            dialog.action_area.set_sensitive(False)
+            theme_sel.set_sensitive(False)
+
+            s = "Loading <b>%s</b>\nThis may take several moments" % new_theme[1]
+            header.set_markup(s)
+
+            progress = gtk.ProgressBar()
+            progress.show()
+
+            dialog.vbox.pack_end( progress, padding=8 )
+            return new_theme, progress
         else:
             dialog.destroy()
-            return None
+            return None, None
 
 
 class IconSetEditorDialog():

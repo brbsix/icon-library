@@ -24,18 +24,18 @@ class IconLibraryController:
     def __init__(self):
         self.Theme = IconTheme()
         self.Gui = IconLibraryGui()
-        self.Gui.make_greeter(self.Theme, self.init_browser_db)
+        self.Gui.make_greeter(self.Theme, self.init_database)
         self.Gui.root.show_all()
         self.Gui.root.connect("destroy", self.destroy_cb )
         return
 
-    def init_browser_db(self, Theme, progressbar):
+    def init_database(self, Theme, progressbar):
         """ Load Treeview models and views and load the icon database.
             When completed load the main gui """
         self.IconDB = IconDatabase()
 
         dbbuilder = threading.Thread(
-            target=self.IconDB.db_create,
+            target=self.IconDB.create,
             args=(Theme, progressbar)
             )
         dbbuilder.start()
@@ -44,12 +44,12 @@ class IconLibraryController:
             200,
             self.thread_isalive_checker,
             dbbuilder,
-            self.init_browser_gui
+            self.init_browser
             )
         return
 
-    def init_browser_gui(self):
-        self.IconDB.db_load()
+    def init_browser(self):
+        self.IconDB.load()
         self.Store = InfoModel(self.Theme)
         self.Display = DisplayModel()
 
@@ -68,19 +68,55 @@ class IconLibraryController:
         self.search_and_display(self.Gui.text_entry)
         return
 
-    def thread_isalive_checker(self, thread, callback, args=None):
+    def start_theme_change(self, Theme, Dialog, new_theme, progress):
+        Theme.set_theme(new_theme)
+
+        dbbuilder = threading.Thread(
+            target=self.IconDB.create,
+            args=(Theme, progress)
+            )
+        dbbuilder.start()
+
+        gobject.timeout_add(
+            200,
+            self.thread_isalive_checker,
+            dbbuilder,
+            self.finish_theme_change,
+            (Theme, Dialog)
+            )
+        return
+
+    def finish_theme_change(self, Theme, Dialog):
+        Dialog.dialog.destroy()
+        del Dialog
+
+        self.IconDB.load()
+        Gui = self.Gui
+
+        Gui.avatar_button.set_image(
+            Gui.make_avatar(Theme)
+            )
+
+        Gui.header_label.set_markup(
+            Gui.make_header(Theme)
+            )
+
+        self.search_and_display("")
+        return
+
+    def thread_isalive_checker(self, thread, func, args=None):
         if thread.isAlive():
             return True
         else:
             if args:
-                callback( *args )
+                func( *args )
             else:
-                callback()
+                func()
             return False
 
     def search_and_display(self, entry):
         IconDB = self.IconDB
-        term, results = IconDB.do_search(entry)
+        term, results = IconDB.search(entry)
 
         self.Gui.set_feedback(
             IconDB,
@@ -109,29 +145,18 @@ class IconLibraryController:
 
     def change_theme_cb(self, avatar_button):
         import dialogs
-
-        Gui = self.Gui
         Theme = self.Theme
-        Dialog = dialogs.ThemeChangeDialog()
-        new_theme = Dialog.run(
-            Theme,
-            Gui.root
-            )
+
+        Dialog = dialogs.ThemeChangeDialog(self.Gui.root)
+        new_theme, progress = Dialog.run(Theme)
 
         if new_theme:
-            Theme.set_theme(new_theme)
-            self.IconDB.db_create(Theme)
-
-            avatar_button.set_image(
-                Gui.make_avatar(Theme)
-                )
-
-            Gui.header_label.set_markup(
-                Gui.make_header(Theme)
-                )
-
-            # fire off a search to fill icon view on new theme selection
-            self.search_and_display("")
+            self.start_theme_change(
+            Theme,
+            Dialog,
+            new_theme,
+            progress
+            )
         return
 
     def standard_filter_cb(self, checkbutton):
@@ -233,28 +258,19 @@ class IconLibraryController:
 class IconLibraryGui:
     def __init__(self):
         # setup the root window
-        DefaultTheme = gtk.icon_theme_get_default()
-
         self.root = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
         self.root.set_default_size(780, 640)
         self.root.set_title( "Icon Library")
-        self.root.set_icon_list(
-            DefaultTheme.load_icon("gtk-home", 8, 0),
-            DefaultTheme.load_icon("gtk-home", 16, 0),
-            DefaultTheme.load_icon("gtk-home", 22, 0),
-            DefaultTheme.load_icon("gtk-home", 24, 0),
-            DefaultTheme.load_icon("gtk-home", 32, 0)
-            )
         self.vbox = gtk.VBox()
         self.root.add(self.vbox)
-        del DefaultTheme
         return
 
-    def make_greeter(self, Theme, init_db_cb):
+    def make_greeter(self, Theme, callback):
         """ Greets the user and offers a range of themes to choose from """
         # list all discoverable themes in a combo box
         theme_sel = gtk.combo_box_new_text()
         theme_sel.set_tooltip_text("Select an icon theme")
+
         i, active = 0, 0
         themes = Theme.list_themes()
         themes.sort()
@@ -285,7 +301,7 @@ class IconLibraryGui:
         greeter_hbox.pack_start(go, False)
 
         greeter_vbox.pack_start(header)
-        greeter_vbox.pack_start(greeter_hbox, padding=15)
+        greeter_vbox.pack_start(greeter_hbox, padding=16)
 
         greeter_main_align.add(greeter_vbox)
         self.vbox.add(greeter_main_align)
@@ -298,7 +314,7 @@ class IconLibraryGui:
             themes,
             theme_sel,
             greeter_vbox,
-            init_db_cb
+            callback
             )
         return
 
@@ -531,8 +547,6 @@ class IconLibraryGui:
             return gtk.image_new_from_icon_name("folder", gtk.ICON_SIZE_DND)
 
     def display_results(self, IconDB, results):
-        self.model2.clear()
-
         displayer = ListDisplayer(
             results,
             IconDB.pb_cache,
@@ -554,7 +568,7 @@ class IconLibraryGui:
         self.feedback_note.set_markup(s)
         return
 
-    def loading_cb(self, go, Theme, header, themes, theme_sel, greeter_vbox, init_db_cb):
+    def loading_cb(self, go, Theme, header, themes, theme_sel, greeter_vbox, callback):
         """ Begin loading the theme chosen at the greeter gui """
         Theme.set_theme( themes[theme_sel.get_active()] )
         theme_sel.set_sensitive(False)
@@ -567,7 +581,7 @@ class IconLibraryGui:
         greeter_vbox.pack_end( progress )
         progress.show()
 
-        init_db_cb( Theme, progress )
+        callback(Theme, progress)
         return
 
 
@@ -585,6 +599,7 @@ class ListDisplayer(threading.Thread):
     def run(self):
         """ Add content to cells """
         while not self.finished.isSet():
+            self.model.clear()
             for key, ico, context, standard, scalable in self.results:
                 pb0 = self.pb_cache[key][0]
                 pb1 = self.pb_cache[key][1]
@@ -674,7 +689,7 @@ class IconDatabase:
         self.ctx_filter = "<b>All Contexts</b>"
         return
 
-    def db_establish_new_connection(self):
+    def new_conn(self):
         create_table = True
         if os.path.exists( "/tmp/icondb.sqlite3" ):
             create_table = False
@@ -697,10 +712,10 @@ class IconDatabase:
 
         return conn, cursor
 
-    def db_create(self, Theme, progressbar=None):
+    def create(self, Theme, progressbar=None):
         import standards
         NamingSpec = standards.StandardIconNamingSpec()
-        conn, cursor = self.db_establish_new_connection()
+        conn, cursor = self.new_conn()
         i, j = 0, 0
 
         self.pb_cache = {}
@@ -733,9 +748,11 @@ class IconDatabase:
                         )
                     i += 1
             j += 1
+
             if progressbar:
                 gtk.gdk.threads_enter()
                 progressbar.set_fraction( j / total )
+                progressbar.set_text( "Loading %s..." % ctx )
                 gtk.gdk.threads_leave()
 
         conn.commit()
@@ -743,23 +760,22 @@ class IconDatabase:
         self.length = i
         return
 
-    def db_load( self ):
+    def load( self ):
         self.conn = sqlite3.connect("/tmp/icondb.sqlite3")
         self.cursor = self.conn.cursor()
         return
 
-    def do_search(self, entry, mode="like"):
+    def search(self, term):
         if len(threading.enumerate()) == 1:
-            if type( entry ) != str:
-                term = entry.get_text()
-            if mode == "like":
-                query = self.make_filter_query(term)
+            if type( term ) != str:
+                term = term.get_text()
 
+            query = self.make_query(term)
             self.cursor.execute(query)
             self.results = self.cursor.fetchall()
         return term, self.results
 
-    def make_filter_query( self, term ):
+    def make_query( self, term ):
         if term != "":
             qterm = "\"%" + term + "%\""
             query = "SELECT * FROM theme WHERE name LIKE %s" % qterm
