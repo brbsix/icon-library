@@ -11,7 +11,7 @@ pygtk.require("2.0")
 
 import os
 import gtk
-
+import time
 
 class IconSetPopupDialog:
     def make(self):
@@ -146,9 +146,8 @@ class ThemeChangeDialog:
             return None, None
 
 
-class IconSetEditorDialog():
-    def __init__(self, root, pb_update_cb ):
-        self.pb_update_cb = pb_update_cb
+class IconSetEditorDialog:
+    def __init__(self, root):
         self.dialog = gtk.Dialog(
             "Icon Set Properties",
             root,
@@ -169,7 +168,7 @@ class IconSetEditorDialog():
         self.dialog.vbox.pack_start( self.notebook, padding=8 )
         return
 
-    def run(self, Theme, iconset_data):
+    def run(self, Theme, IconDB, iconset_data):
         context = iconset_data[2]
         name = iconset_data[1]
         key = iconset_data[0]
@@ -388,47 +387,34 @@ class IconSetEditorDialog():
         self.notebook.set_tab_label_text( page, tab_label )
         return icon
 
-    def replace_icon(self, theme, context, icon, key):
-        makelinks = self.makelinks.get_active()
-        print self.determine_output_location( theme, context, icon )
-
-#        if icon.size == 16:
-#            self.pb_update_cb( key, 0, icon.pixbuf )
-#        elif icon.size == 24:
-#            self.pb_update_cb( key, 1, icon.pixbuf )
-#        elif icon.size == 32:
-#            self.pb_update_cb( key, 2, icon.pixbuf )
-
-#        backup_dir = os.path.join(os.getcwd(), 'backup')
-#        backup = os.path.join(
-#            backup_dir,
-#            os.path.split( icon.default_path)[1]+'.backup'+str( time.time() )
-#            )
-
-#        # backup
-#        print '\nA backup has been made:\n', backup
-#        if not os.path.isdir(backup_dir):
-#            os.mkdir(backup_dir)
-#        shutil.move( icon.default_path, backup )
-
-#        if self.makelinks.get_active():
-#            # replace icon with a symlink to new icon
-#            os.symlink( icon.cur_path, icon.default_path )
-#        else:
-#            shutil.copy( icon.cur_path, icon.default_path )
+    def update_db_pixbuf(self, IconDB):
+        if icon.size == 16:
+            IconDB.update_pixbuf_cache( key, 0, icon.pixbuf )
+        elif icon.size == 24:
+            IconDB.update_pixbuf_cache( key, 1, icon.pixbuf )
+        elif icon.size == 32:
+            IconDB.update_pixbuf_cache( key, 2, icon.pixbuf )
         return
 
-    def determine_output_location( self, theme, context, icon ):
-        ddst, src = icon.default_path.split('/'), icon.cur_path
-        home = os.path.expanduser('~').split('/')
-#        ddst_write_ok = os.lstat(ddst).st_uid == pwd.getpwnam( os.getlogin() )[2]
+    def update_db_entry(self, IconDB):
+        pass
 
-        for i in range( len(home) ):
-            ddst[i] = home[i]
-        ddst[i+1] = ".icons"
-        path = src[0]
-        for folder in ddst:
-            path = os.path.join( path, folder )
+    def backup_icon(self, theme, context, icon, key):
+        backup_dir = os.path.join(os.getcwd(), 'backup')
+        backup = os.path.join(
+            backup_dir,
+            os.path.split( icon.default_path)[1]+'.backup.'+str( time.time() )
+            )
+
+        print '\nDEBUG: Backup', backup
+        if not os.path.isdir(backup_dir):
+            os.mkdir(backup_dir)
+        shutil.move( icon.default_path, backup )
+        return
+
+    def replace_icon(self, theme, context, icon, key):
+        makelinks = self.makelinks.get_active()
+        print 'DEBUG: Replacement', self.output_location( theme, context, icon )
 
 #        if not os.path.exists( os.path.split(path)[0] ):
 #            os.makedirs( os.path.split(path)[0] )
@@ -438,6 +424,18 @@ class IconSetEditorDialog():
 #        else:
 #            import shutil
 #            shutil.copy( icon.cur_path, path )
+        return
+
+    def output_location( self, theme, context, icon ):
+        ddst, src = icon.default_path.split('/'), icon.cur_path
+        home = os.path.expanduser('~').split('/')
+
+        for i in range( len(home) ):
+            ddst[i] = home[i]
+        ddst[i+1] = ".icons"
+        path = src[0]
+        for folder in ddst:
+            path = os.path.join( path, folder )
         return path
 
     def icon_chooser_dialog_cb(self, selector, resetter, icon, iconset_context, iconset_name ):

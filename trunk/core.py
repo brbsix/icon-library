@@ -30,8 +30,8 @@ class IconLibraryController:
         return
 
     def init_database(self, Theme, progressbar):
-        """ Load Treeview models and views and load the icon database.
-            When completed load the main gui """
+        """ Function sets initial theme and builds initial theme database.
+            On completion initialises browser gui """
         self.IconDB = IconDatabase()
 
         dbbuilder = threading.Thread(
@@ -42,16 +42,19 @@ class IconLibraryController:
 
         gobject.timeout_add(
             200,
-            self.thread_isalive_checker,
+            self.thread_completed,
             dbbuilder,
             self.init_browser
             )
         return
 
     def init_browser(self):
+        """ Function initialises browser gui """
         self.IconDB.load()
-        self.Store = InfoModel(self.Theme)
+        self.Store = InfoModel()
         self.Display = DisplayModel()
+        self.Display.make_view1(self.Store.model1)
+        self.Display.make_view2(self.Store.model2)
 
         self.cswatch_focus = None
 
@@ -62,13 +65,15 @@ class IconLibraryController:
             self.Store,
             self.Display
             )
-        self.Gui.root.show_all()
 
-        # fire off an initial search to fill icon view
+        self.Store.model1_set_info(self.Theme)
+        self.Gui.root.show_all()
         self.search_and_display(self.Gui.text_entry)
         return
 
     def start_theme_change(self, Theme, Dialog, new_theme, progress):
+        """ Function sets new theme and builds new theme database.
+            Calls finish_theme_change on database completion """
         Theme.set_theme(new_theme)
 
         dbbuilder = threading.Thread(
@@ -79,7 +84,7 @@ class IconLibraryController:
 
         gobject.timeout_add(
             200,
-            self.thread_isalive_checker,
+            self.thread_completed,
             dbbuilder,
             self.finish_theme_change,
             (Theme, Dialog)
@@ -87,6 +92,8 @@ class IconLibraryController:
         return
 
     def finish_theme_change(self, Theme, Dialog):
+        """ Alters Gui elements to reflect theme change completion """
+        gtk.gdk.threads_enter()
         Dialog.dialog.destroy()
         del Dialog
 
@@ -101,10 +108,14 @@ class IconLibraryController:
             Gui.make_header(Theme)
             )
 
-        self.search_and_display("")
+        self.Store.model1_set_info(Theme)
+        self.search_and_display(self.Gui.text_entry)
+        gtk.gdk.threads_leave()
         return
 
-    def thread_isalive_checker(self, thread, func, args=None):
+    def thread_completed(self, thread, func, args=None):
+        """ Function checks if a thread is alive.  If not runs a callback.
+            Use in conjunction with a gobject timeout """
         if thread.isAlive():
             return True
         else:
@@ -115,6 +126,7 @@ class IconLibraryController:
             return False
 
     def search_and_display(self, entry):
+        """ Function performs IconDB search then displays results in treeview """
         IconDB = self.IconDB
         term, results = IconDB.search(entry)
 
@@ -124,26 +136,23 @@ class IconLibraryController:
             len(results)
             )
 
-        self.Gui.display_results(
-            IconDB,
-            results
+        self.Store.model2_set_info(
+            results,
+            IconDB.pixbuf_cache
             )
         return
 
     def change_bg_color_cb(self, successor):
+        """ ColorSwatch clicked callback.  Modify's treeview background color. """
         cs = self.cswatch_focus
         if cs != successor:
             cs.relinquish_focus()
-
-            self.Display.modify_view2_colors(
-                self.Gui.view2,
-                successor.get_colors()
-                )
-
+            self.Display.view2_modify_colors( successor.get_colors() )
         self.cswatch_focus = successor
         return
 
     def change_theme_cb(self, avatar_button):
+        """ Theme change button clicked callback.  Begins theme change process """
         import dialogs
         Theme = self.Theme
 
@@ -160,11 +169,13 @@ class IconLibraryController:
         return
 
     def standard_filter_cb(self, checkbutton):
+        """ Standard filter checkbutton toggled callback.  Sets standard filter. """
         self.IconDB.set_standard_filter( checkbutton.get_active() )
         self.search_and_display(self.Gui.text_entry)
         return
 
-    def v2_row_activated_cb(self, treeview, event):
+    def row_activated_cb(self, treeview, event):
+        """ Iconset (view2) treeview row activated callback """
         if event.button == 3:
             import dialogs
 
@@ -181,34 +192,34 @@ class IconLibraryController:
         return
 
     def edit_iconset_cb(self, action, results):
+        """ Callback that starts the iconset editor for selected iconset """
         import dialogs
 
-        Editor = dialogs.IconSetEditorDialog(
-            self.Gui.root,
-            self.IconDB.update_pixbuf_cache
-            )
-
+        Editor = dialogs.IconSetEditorDialog(self.Gui.root)
         Editor.run(
             self.Theme,
+            self.IconDB,
             results
             )
         return
 
     def jump_to_icon_cb(self, action, results):
+        """ Jump to clicked callback.  Jumps to icon symlink target. """
         path = self.Theme.lookup_icon(results[0], 22, 0).get_filename()
         rpath = os.path.realpath( path )
         rname = os.path.splitext( os.path.split( rpath )[1] )[0]
         found = False
-        Gui = self.Gui
 
-        for row in Gui.model2:
+        Display = self.Display
+
+        for row in self.Store.model2:
             if row[0][0] == "<":
                 if row[0][3:-4] == rname:
-                    Gui.view2.set_cursor( row.path )
+                    Display.view2.set_cursor( row.path )
                     found = True
                     break
             elif row[0] == rname:
-                Gui.view2.set_cursor( row.path )
+                Display.view2.set_cursor( row.path )
                 found = True
                 break
         if not found:
@@ -218,12 +229,12 @@ class IconLibraryController:
             Dialog.run(
                 rname,
                 rpath,
-                Gui.root
+                self.Gui.root
                 )
         return
 
     def context_filter_cb(self, treeview):
-        """ Filter search results by the select icon context """
+        """ Filter search results by selected context """
         model, path = treeview.get_selection().get_selected()
         ctx = model[path][0]
         self.IconDB.set_context_filter(ctx)
@@ -235,24 +246,25 @@ class IconLibraryController:
         return
 
     def search_button_cb( self, *kw ):
+        """ Search button clicked callback.  Does search. """
         self.search_and_display(self.Gui.text_entry)
         return
 
     def clear_button_cb( self, *kw ):
+        """ Clear button clicked callback. Does empty search. """
         self.Gui.text_entry.set_text("")
         self.search_and_display("")
         return
 
     def destroy_cb(self, *kw):
         """ Destroy callback to shutdown the app """
-        if len(threading.enumerate()) == 1:
-            gtk.main_quit()
-        else:
-            print threading.enumerate()
+        gtk.main_quit()
         return
 
     def run(self):
+        """ Starts the app """
         gtk.main()
+        return
 
 
 class IconLibraryGui:
@@ -335,14 +347,11 @@ class IconLibraryGui:
 
         scrollers = self.setup_scrolled_panels(vbox)
 
-        views = self.setup_listviews(
+        self.setup_listviews(
             Controller,
-            Store,
-            Display
+            Display,
+            scrollers
             )
-
-        scrollers[0].add(views[0])
-        scrollers[1].add(views[1])
 
         btm_hboxes = self.setup_bottom_toolbar(vbox)
 
@@ -374,7 +383,7 @@ class IconLibraryGui:
         self.text_entry = gtk.Entry(60)
 
         srch_btn = gtk.Button("Find")
-        srch_btn.set_size_request(80, -1)
+        srch_btn.set_size_request(76, -1)
         srch_btn.set_image(
             gtk.image_new_from_stock( gtk.STOCK_FIND, gtk.ICON_SIZE_MENU )
             )
@@ -385,23 +394,21 @@ class IconLibraryGui:
             gtk.image_new_from_stock( gtk.STOCK_CLEAR, gtk.ICON_SIZE_MENU )
             )
 
-        srch_vbox = gtk.VBox()
-        srch_align = gtk.Alignment(0.5, 0.5)
-        srch_align.add(srch_vbox)
-        srch_vbox.pack_start(srch_btn, False)
+        rbtn_align = gtk.Alignment(0.5, 0.5)
+        rbtn_vbox = gtk.VBox()
+        rbtn_hbox = gtk.HBox()
 
-        clr_vbox = gtk.VBox()
-        clr_align = gtk.Alignment(0.5, 0.5)
-        clr_align.add(clr_vbox)
-        clr_vbox.pack_start(clr_btn)
+        rbtn_align.add(rbtn_vbox)
+        rbtn_vbox.pack_start(rbtn_hbox, False)
+        rbtn_hbox.pack_start(clr_btn, False)
+        rbtn_hbox.pack_end(srch_btn, False)
 
         tbar_hbox = gtk.HBox()
 
         tbar_hbox.pack_start(self.avatar_button, False, padding=5)
         tbar_hbox.pack_start(self.header_label, False)
 
-        tbar_hbox.pack_end(srch_align, False)
-        tbar_hbox.pack_end(clr_align, False)
+        tbar_hbox.pack_end(rbtn_align, False)
         tbar_hbox.pack_end(self.text_entry, False)
         tbar_hbox.pack_end(self.standard_check, False, padding=5)
 
@@ -448,6 +455,16 @@ class IconLibraryGui:
         vbox.pack_start(hpaned)
         return (scroller1, scroller2)
 
+    def setup_listviews(self, Controller, Display, scrollers):
+        view1, view2 = Display.view1, Display.view2
+
+        scrollers[0].add(view1)
+        scrollers[1].add(view2)
+
+        view1.connect("cursor-changed", Controller.context_filter_cb) 
+        view2.connect("button-release-event", Controller.row_activated_cb)
+        return
+
     def setup_bottom_toolbar(self, vbox):
         btm_hbox = gtk.HBox()
         btm_hbox.set_homogeneous(True)
@@ -474,18 +491,6 @@ class IconLibraryGui:
 
         btm_hbox.pack_end(self.feedback_note)
         return
-
-    def setup_listviews( self, Controller, Store, Display ):
-        self.model1 = Store.get_model1()
-        self.view1 = Display.make_view1(self.model1)
-        self.view1.set_cursor(0)
-
-        self.model2 = Store.get_model2()
-        self.view2 = Display.make_view2(self.model2)
-
-        self.view1.connect("cursor-changed", Controller.context_filter_cb)
-        self.view2.connect("button-release-event", Controller.v2_row_activated_cb)
-        return (self.view1, self.view2)
 
     def setup_color_swatches(self, Controller, btm_hbox):
         import custom_widgets
@@ -546,15 +551,6 @@ class IconLibraryGui:
         except:
             return gtk.image_new_from_icon_name("folder", gtk.ICON_SIZE_DND)
 
-    def display_results(self, IconDB, results):
-        displayer = ListDisplayer(
-            results,
-            IconDB.pb_cache,
-            self.model2
-            )
-        displayer.start()
-        return
-
     def set_feedback(self, IconDB, term, num_of_results):
         """ Displays basic search stats in the GUI """
         std = ""
@@ -582,44 +578,6 @@ class IconLibraryGui:
         progress.show()
 
         callback(Theme, progress)
-        return
-
-
-class ListDisplayer(threading.Thread):
-    """ Renders cells in a thread to minimise GUI unresponsiveness """
-    def __init__(self, results, pb_cache, model):
-        """ Setup threading """
-        threading.Thread.__init__(self)
-        self.finished = threading.Event()
-        self.results = results
-        self.pb_cache = pb_cache
-        self.model = model
-        return
-
-    def run(self):
-        """ Add content to cells """
-        while not self.finished.isSet():
-            self.model.clear()
-            for key, ico, context, standard, scalable in self.results:
-                pb0 = self.pb_cache[key][0]
-                pb1 = self.pb_cache[key][1]
-                pb2 = self.pb_cache[key][2]
-
-                notes = None
-                if key != ico:
-                    notes = "Symlink"
-                if not scalable:
-                    if not notes:
-                        notes = "Fixed Only"
-                    else:
-                        notes += ", Fixed Only"
-                if standard:
-                    ico = "<b>%s</b>" % ico
-
-                gtk.gdk.threads_enter()
-                self.model.append( (ico, context, pb0, pb1, pb2, notes) )
-                gtk.gdk.threads_leave()
-            self.finished.set()
         return
 
 
@@ -682,6 +640,8 @@ class IconTheme(gtk.IconTheme):
 class IconDatabase:
     def __init__(self):
         """ Both the DB and pixbuf cache are filled. """
+        self.conn = None
+        self.cursor = None
         self.length = 0
         self.model = None
         self.results = None
@@ -718,7 +678,7 @@ class IconDatabase:
         conn, cursor = self.new_conn()
         i, j = 0, 0
 
-        self.pb_cache = {}
+        self.pixbuf_cache = {}
         contexts = Theme.list_contexts()
         total = float( len( contexts ) )
 
@@ -730,11 +690,11 @@ class IconDatabase:
                     k = Theme.lookup_icon(ico, 22, 0).get_filename()
                     k = os.path.realpath( k )
                     k = os.path.splitext( os.path.split(k)[1] )[0]
-                    if not self.pb_cache.has_key(k):
+                    if not self.pixbuf_cache.has_key(k):
                         pb16 = Theme.load_icon( ico, 16, 0 )
                         pb24 = Theme.load_icon( ico, 24, 0 )
                         pb32 = Theme.load_icon( ico, 32, 0 )
-                        self.pb_cache[k] = (pb16, pb24, pb32)
+                        self.pixbuf_cache[k] = (pb16, pb24, pb32)
                 except:
                     error = True
                     print "Error loading icon %s, skipping..." % ico
@@ -761,6 +721,9 @@ class IconDatabase:
         return
 
     def load( self ):
+        if self.cursor != None:
+            self.cursor.close()
+            del self.conn, self.cursor
         self.conn = sqlite3.connect("/tmp/icondb.sqlite3")
         self.cursor = self.conn.cursor()
         return
@@ -799,9 +762,9 @@ class IconDatabase:
         return query
 
     def update_pixbuf_cache( self, k, index, pixbuf ):
-        pb_list = list( self.pb_cache[k] )
+        pb_list = list( self.pixbuf_cache[k] )
         pb_list[index] = pixbuf
-        self.pb_cache[k] = tuple( pb_list )
+        self.pixbuf_cache[k] = tuple( pb_list )
         return
 
     def set_context_filter(self, context):
@@ -824,56 +787,85 @@ class IconDatabase:
 
 
 class InfoModel:
-    """ The model class holds the information we want to display
-        in both the context filter and the main icon view """
-    def __init__(self, Theme):
-        """ Create two list store.  One for the context filter and one for the main
-            icon view.  The context filter list store is filled, while the main view
-            list store is not. """
-        self.list_store1 = gtk.ListStore( str )
-        self.list_store1.append( ("<b>All Contexts</b>",) )
+    def __init__(self):
+        self.model1 = self.make_model1()
+        self.model2 = self.make_model2()
+        return
+
+    def make_model1(self):
+        model1 = gtk.ListStore(str)
+        return model1
+
+    def make_model2(self):
+        model2 = gtk.ListStore(
+            str,
+            str,
+            gtk.gdk.Pixbuf,
+            gtk.gdk.Pixbuf,
+            gtk.gdk.Pixbuf,
+            str
+            )
+        return model2
+
+    def model1_set_info(self, Theme):
+        self.model1.clear()
+        self.model1.append( ("<b>All Contexts</b>",) )
         ctxs = list( Theme.list_contexts() )
         ctxs.sort()
         for ctx in ctxs:
-            self.list_store1.append( (ctx,) )
-
-        self.list_store2 = gtk.ListStore( str,
-                                          str,
-                                          gtk.gdk.Pixbuf,
-                                          gtk.gdk.Pixbuf,
-                                          gtk.gdk.Pixbuf,
-                                          str
-                                          )
+            self.model1.append( (ctx,) )
         return
 
-    def get_model1(self):
-       """ Returns the model """
-       return self.list_store1
+    def model2_set_info(self, results, pixbuf_cache):
+        appender = threading.Thread(
+            target=self.__model2_appender,
+            args=(results, pixbuf_cache)
+            )
+        appender.start()
+        return
 
-    def get_model2(self):
-       """ Returns the model """
-       return self.list_store2
+    def __model2_appender(self, results, pixbuf_cache):
+        self.model2.clear()
+        for key, ico, context, standard, scalable in results:
+            pb0 = pixbuf_cache[key][0]
+            pb1 = pixbuf_cache[key][1]
+            pb2 = pixbuf_cache[key][2]
+
+            notes = None
+            if key != ico:
+                notes = "Symlink"
+            if not scalable:
+                if not notes:
+                    notes = "Fixed Only"
+                else:
+                    notes += ", Fixed Only"
+            if standard:
+                ico = "<b>%s</b>" % ico
+
+            gtk.gdk.threads_enter()
+            self.model2.append( (ico, context, pb0, pb1, pb2, notes) )
+            gtk.gdk.threads_leave()
+        return
 
 
 class DisplayModel:
-    """ Displays the Info_Model model in a view """
-    def make_view1(self, model):
+    def make_view1(self, model1):
         """ Make the view for the context filter list store """
-        view1 = gtk.TreeView(model)
+        self.view1 = gtk.TreeView(model1)
         renderer10 = gtk.CellRendererText()
         renderer10.set_property("xpad", 5)
 
         column10 = gtk.TreeViewColumn("Context Filter", renderer10, markup=0)
 
-        view1.append_column(column10)
-        return view1
+        self.view1.append_column(column10)
+        return self.view1
 
-    def make_view2(self, model):
+    def make_view2(self, model2):
         """ Make the main view for the icon view list store """
         import pango
 
-        view2 = gtk.TreeView(model)
-        view2.set_events( gtk.gdk.BUTTON_PRESS_MASK )
+        self.view2 = gtk.TreeView(model2)
+        self.view2.set_events( gtk.gdk.BUTTON_PRESS_MASK )
         # setup the icon name cell-renderer
         self.renderer20 = gtk.CellRendererText()
         self.renderer20.set_property("xpad", 5)
@@ -903,7 +895,7 @@ class DisplayModel:
         self.renderer25.set_property('size-points', 7)
         self.renderer25.set_property(
             'foreground',
-            view2.get_style().text[gtk.STATE_INSENSITIVE].to_string()
+            self.view2.get_style().text[gtk.STATE_INSENSITIVE].to_string()
             )
 
         # Connect columns to columns in icon view model
@@ -923,17 +915,17 @@ class DisplayModel:
         column22.set_attributes(self.renderer24, pixbuf=4)
 
         # append column to icon view
-        view2.append_column(column20)
-        view2.append_column(column21)
-        view2.append_column(column22)
-        view2.append_column(column23)
+        self.view2.append_column(column20)
+        self.view2.append_column(column21)
+        self.view2.append_column(column22)
+        self.view2.append_column(column23)
 
         column20.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
         column21.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
         column22.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
-        return view2
+        return self.view2
 
-    def modify_view2_colors(self, view2, colors):
+    def view2_modify_colors(self, colors):
         bg, txt_norm, txt_insens, default = colors
         if default:
             bg_copy = bg
@@ -952,7 +944,7 @@ class DisplayModel:
         self.renderer25.set_property('cell-background', bg)
         # base, and redraw
         if default:
-            view2.modify_base( gtk.STATE_NORMAL, gtk.gdk.color_parse(bg_copy) )
+            self.view2.modify_base( gtk.STATE_NORMAL, gtk.gdk.color_parse(bg_copy) )
         else:
-            view2.modify_base( gtk.STATE_NORMAL, gtk.gdk.color_parse(bg) )
+            self.view2.modify_base( gtk.STATE_NORMAL, gtk.gdk.color_parse(bg) )
         return
