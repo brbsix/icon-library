@@ -120,9 +120,34 @@ class ThemeChangeDialog:
         header.set_justify( gtk.JUSTIFY_CENTER )
         header.set_text("Select a new icon theme to view") 
 
+        custom = gtk.Button()
+        custom.set_tooltip_text("Manually select an icon theme")
+        custom.set_size_request(33, -1)
+        custom.set_image(
+            gtk.image_new_from_icon_name("document-open", gtk.ICON_SIZE_SMALL_TOOLBAR)
+            )
+
+        greeter_main_align = gtk.Alignment(xalign=0.5, yalign=0.5)
+        greeter_vbox = gtk.VBox()
+        greeter_hbox = gtk.HBox()
+
+        greeter_hbox.pack_start(theme_sel, False)
+        greeter_hbox.pack_start(custom, False)
+
+        greeter_vbox.pack_start(header, padding=5)
+        greeter_vbox.pack_start(greeter_hbox, padding=16)
+
+        greeter_main_align.add(greeter_vbox)
+
         dialog = self.dialog
-        dialog.vbox.pack_start(header, False, False, 8) 
-        dialog.vbox.pack_start(theme_sel, False, False, 8)
+        dialog.vbox.add(greeter_main_align)
+
+        custom.connect(
+            "clicked",
+            self.custom_cb,
+            Theme,
+            theme_sel
+            )
 
         dialog.vbox.show_all()
         response = dialog.run()
@@ -132,6 +157,7 @@ class ThemeChangeDialog:
 
             dialog.action_area.set_sensitive(False)
             theme_sel.set_sensitive(False)
+            custom.set_sensitive(False)
 
             s = "Loading <b>%s</b>\nThis may take several moments" % new_theme[1]
             header.set_markup(s)
@@ -145,6 +171,41 @@ class ThemeChangeDialog:
             dialog.destroy()
             return None, None
 
+    def custom_cb(self, button, Theme, theme_sel):
+        chooser = gtk.FileChooserDialog(
+            "Select a custom theme",
+            action=gtk.FILE_CHOOSER_ACTION_OPEN,
+            buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN,gtk.RESPONSE_OK)
+            )
+
+        fltr = gtk.FileFilter()
+        fltr.set_name("Theme Index")
+        fltr.add_pattern("*index.theme")
+        chooser.add_filter(fltr)
+
+        fltr = gtk.FileFilter()
+        fltr.set_name("All files")
+        fltr.add_pattern("*")
+        chooser.add_filter(fltr)
+
+        response = chooser.run()
+        if response == gtk.RESPONSE_OK:
+            index_path = chooser.get_filename()
+            theme_root = chooser.get_current_folder()
+
+            theme = (
+                os.path.split(theme_root)[1],
+                Theme.read_name(index_path),
+                index_path
+                )
+
+            theme_sel.append_text( theme[1] + " *" )
+            theme_sel.set_active( len(Theme.all_themes) )
+            Theme.all_themes.append(theme)
+            Theme.prepend_search_path( os.path.split(theme_root)[0] )
+
+        chooser.destroy()
+        return
 
 class IconSetEditorDialog:
     def __init__(self, root):

@@ -53,8 +53,10 @@ class IconLibraryController:
         self.IconDB.load()
         self.Store = InfoModel()
         self.Display = DisplayModel()
-        self.Display.make_view1(self.Store.model1)
-        self.Display.make_view2(self.Store.model2)
+
+        Display = self.Display
+        Display.make_view1(self.Store.model1)
+        Display.make_view2(self.Store.model2)
 
         self.cswatch_focus = None
 
@@ -63,7 +65,7 @@ class IconLibraryController:
             self.Theme,
             self.IconDB,
             self.Store,
-            self.Display
+            Display
             )
 
         self.Store.model1_set_info(self.Theme)
@@ -300,9 +302,17 @@ class IconLibraryGui:
         header.set_text("Select the icon theme you would like to view")
 
         go = gtk.Button()
+        go.set_tooltip_text("Load selected icon theme")
         go.set_size_request(33, -1)
         go.set_image(
             gtk.image_new_from_icon_name("dialog-ok", gtk.ICON_SIZE_SMALL_TOOLBAR)
+            )
+
+        custom = gtk.Button()
+        custom.set_tooltip_text("Manually select an icon theme")
+        custom.set_size_request(33, -1)
+        custom.set_image(
+            gtk.image_new_from_icon_name("document-open", gtk.ICON_SIZE_SMALL_TOOLBAR)
             )
 
         greeter_main_align = gtk.Alignment(xalign=0.5, yalign=0.5)
@@ -310,6 +320,7 @@ class IconLibraryGui:
         greeter_hbox = gtk.HBox()
 
         greeter_hbox.pack_start(theme_sel, False)
+        greeter_hbox.pack_start(custom, False)
         greeter_hbox.pack_start(go, False)
 
         greeter_vbox.pack_start(header)
@@ -318,6 +329,13 @@ class IconLibraryGui:
         greeter_main_align.add(greeter_vbox)
         self.vbox.add(greeter_main_align)
 
+        custom.connect(
+            "clicked",
+            self.custom_cb,
+            Theme,
+            theme_sel
+            )
+
         go.connect(
             "clicked",
             self.loading_cb,
@@ -325,6 +343,7 @@ class IconLibraryGui:
             header,
             themes,
             theme_sel,
+            custom,
             greeter_vbox,
             callback
             )
@@ -364,12 +383,16 @@ class IconLibraryGui:
         return
 
     def setup_top_toolbar(self, Controller, Theme, vbox):
+        import pango
+
         self.avatar_button = gtk.Button()
         self.avatar_button.set_relief(gtk.RELIEF_NONE)
         self.avatar_button.set_tooltip_text("Switch theme")
         self.avatar_button.set_image( self.make_avatar(Theme) )
 
         self.header_label = gtk.Label()
+        self.header_label.set_max_width_chars(40)
+        self.header_label.set_ellipsize(pango.ELLIPSIZE_END)
         self.header_label.set_markup( self.make_header(Theme) )
 
         self.standard_check = gtk.CheckButton(
@@ -564,11 +587,49 @@ class IconLibraryGui:
         self.feedback_note.set_markup(s)
         return
 
-    def loading_cb(self, go, Theme, header, themes, theme_sel, greeter_vbox, callback):
+    def custom_cb(self, button, Theme, theme_sel):
+        chooser = gtk.FileChooserDialog(
+            "Select a custom theme",
+            action=gtk.FILE_CHOOSER_ACTION_OPEN,
+            buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN,gtk.RESPONSE_OK)
+            )
+
+        fltr = gtk.FileFilter()
+        fltr.set_name("Theme Index")
+        fltr.add_pattern("*index.theme")
+        chooser.add_filter(fltr)
+
+        fltr = gtk.FileFilter()
+        fltr.set_name("All files")
+        fltr.add_pattern("*")
+        chooser.add_filter(fltr)
+
+        response = chooser.run()
+        if response == gtk.RESPONSE_OK:
+            index_path = chooser.get_filename()
+            theme_root = chooser.get_current_folder()
+
+            theme = (
+                os.path.split(theme_root)[1],
+                Theme.read_name(index_path),
+                index_path
+                )
+
+            theme_sel.append_text( theme[1] + " *" )
+            theme_sel.set_active( len(Theme.all_themes) )
+            Theme.all_themes.append(theme)
+            Theme.prepend_search_path( os.path.split(theme_root)[0] )
+
+        chooser.destroy()
+        return
+
+    def loading_cb(self, go, Theme, header, themes, theme_sel, custom, greeter_vbox, callback):
         """ Begin loading the theme chosen at the greeter gui """
         Theme.set_theme( themes[theme_sel.get_active()] )
-        theme_sel.set_sensitive(False)
+
         go.set_sensitive(False)
+        for w in (theme_sel, custom, go):
+            w.set_sensitive(False)
 
         s = "Loading <b>%s</b>\nThis may take several moments" % Theme.info[1]
         header.set_markup(s)
