@@ -95,7 +95,6 @@ class IconLibraryController:
 
     def finish_theme_change(self, Theme, Dialog):
         """ Alters Gui elements to reflect theme change completion """
-        gtk.gdk.threads_enter()
         Dialog.dialog.destroy()
         del Dialog
 
@@ -112,7 +111,6 @@ class IconLibraryController:
 
         self.Store.model1_set_info(Theme)
         self.search_and_display(self.Gui.text_entry)
-        gtk.gdk.threads_leave()
         return
 
     def thread_completed(self, thread, func, args=None):
@@ -138,6 +136,7 @@ class IconLibraryController:
             len(results)
             )
 
+        self.Store.model2.clear()
         self.Store.model2_set_info(
             results,
             IconDB.pixbuf_cache
@@ -504,15 +503,15 @@ class IconLibraryGui:
         return  (btm_hbox0, btm_hbox1, btm_hbox2)
 
     def setup_feedback_label(self, IconDB, btm_hbox):
-        self.feedback_note = gtk.Label()
-        self.feedback_note.set_alignment(0.5, 0.5)
-        self.feedback_note.set_size_request(-1, 24)
+        self.feedback_label = gtk.Label()
+        self.feedback_label.set_alignment(0.5, 0.5)
+        self.feedback_label.set_size_request(-1, 24)
 
-        self.feedback_note.set_markup(
+        self.feedback_label.set_markup(
             "Displaying <b>%s</b> icons" % ( IconDB.get_length() )
             )
 
-        btm_hbox.pack_end(self.feedback_note)
+        btm_hbox.pack_end(self.feedback_label)
         return
 
     def setup_color_swatches(self, Controller, btm_hbox):
@@ -584,7 +583,7 @@ class IconLibraryGui:
         else:
             s = "<b>%s</b> %sresults for <b>%s</b> in <b>%s</b>"
             s = s % (num_of_results, std, term, IconDB.ctx_filter)
-        self.feedback_note.set_markup(s)
+        self.feedback_label.set_markup(s)
         return
 
     def custom_cb(self, button, Theme, theme_sel):
@@ -596,7 +595,7 @@ class IconLibraryGui:
 
         fltr = gtk.FileFilter()
         fltr.set_name("Theme Index")
-        fltr.add_pattern("*index.theme")
+        fltr.add_pattern("index.theme")
         chooser.add_filter(fltr)
 
         fltr = gtk.FileFilter()
@@ -615,7 +614,7 @@ class IconLibraryGui:
                 index_path
                 )
 
-            theme_sel.append_text( theme[1] + " *" )
+            theme_sel.append_text(theme[1])
             theme_sel.set_active( len(Theme.all_themes) )
             Theme.all_themes.append(theme)
             Theme.prepend_search_path( os.path.split(theme_root)[0] )
@@ -886,7 +885,6 @@ class InfoModel:
         return
 
     def __model2_appender(self, results, pixbuf_cache):
-        self.model2.clear()
         for key, ico, context, standard, scalable in results:
             pb0 = pixbuf_cache[key][0]
             pb1 = pixbuf_cache[key][1]

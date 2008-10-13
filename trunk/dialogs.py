@@ -11,7 +11,9 @@ pygtk.require("2.0")
 
 import os
 import gtk
+import pwd
 import time
+import shutil
 
 class IconSetPopupDialog:
     def make(self):
@@ -180,7 +182,7 @@ class ThemeChangeDialog:
 
         fltr = gtk.FileFilter()
         fltr.set_name("Theme Index")
-        fltr.add_pattern("*index.theme")
+        fltr.add_pattern("index.theme")
         chooser.add_filter(fltr)
 
         fltr = gtk.FileFilter()
@@ -199,7 +201,7 @@ class ThemeChangeDialog:
                 index_path
                 )
 
-            theme_sel.append_text( theme[1] + " *" )
+            theme_sel.append_text( theme[1] )
             theme_sel.set_active( len(Theme.all_themes) )
             Theme.all_themes.append(theme)
             Theme.prepend_search_path( os.path.split(theme_root)[0] )
@@ -248,6 +250,7 @@ class IconSetEditorDialog:
         self.header.set_justify( gtk.JUSTIFY_CENTER )
 
         color = self.dialog.get_style().text[gtk.STATE_INSENSITIVE].to_string()
+
         for size in sizes:
             icon = self.make_and_append_page(
                 Theme,
@@ -258,16 +261,17 @@ class IconSetEditorDialog:
                 )
             iconset += icon,
 
-        self.makelinks = gtk.CheckButton( "Replace with symlinks", False )
-        self.makelinks.set_active( True )
-        self.dialog.vbox.pack_start( self.makelinks, False, False, padding=3 )
+        self.makelinks = gtk.CheckButton("Replace with symlinks", False)
+        self.makelinks.set_active(True)
+        self.dialog.vbox.pack_start(self.makelinks, False, False, padding=3)
 
         self.dialog.vbox.show_all()
         response = self.dialog.run()
         if response == gtk.RESPONSE_APPLY:
             for icon in iconset:
                 if icon.cur_path and icon.cur_path != icon.default_path:
-                    self.replace_icon( Theme.info[2], context, icon, key )
+                    self.replace_icon(Theme.info[2], context, icon, key)
+
         self.dialog.destroy()
         return
 
@@ -434,7 +438,7 @@ class IconSetEditorDialog:
             )
 
         btn_hbox = gtk.HBox()
-        btn_hbox.set_border_width( 5 )
+        btn_hbox.set_border_width(5)
         btn_hbox.pack_start(selector)
         btn_hbox.pack_start(guesser)
         btn_hbox.pack_start(resetter)
@@ -448,26 +452,29 @@ class IconSetEditorDialog:
         self.notebook.set_tab_label_text( page, tab_label )
         return icon
 
-    def update_db_pixbuf(self, IconDB):
-        if icon.size == 16:
-            IconDB.update_pixbuf_cache( key, 0, icon.pixbuf )
-        elif icon.size == 24:
-            IconDB.update_pixbuf_cache( key, 1, icon.pixbuf )
-        elif icon.size == 32:
-            IconDB.update_pixbuf_cache( key, 2, icon.pixbuf )
+    def update_icon_preview(self, path, resetter, icon):
+        icon.set_icon( path )
+        resetter.set_sensitive(True)
+        return
+
+    def update_db_pixbuf(self, Theme, IconDB, name, key):
+        pb16 = Theme.load_icon( name, 16, 0 )
+        pb24 = Theme.load_icon( name, 24, 0 )
+        pb32 = Theme.load_icon( name, 32, 0 )
+        IconDB.pixbuf_cache[key] = (pb16, pb24, pb32)
         return
 
     def update_db_entry(self, IconDB):
         pass
 
-    def backup_icon(self, theme, context, icon, key):
+    def backup_icon(self, icon, key):
         backup_dir = os.path.join(os.getcwd(), 'backup')
         backup = os.path.join(
             backup_dir,
             os.path.split( icon.default_path)[1]+'.backup.'+str( time.time() )
             )
 
-        print '\nDEBUG: Backup', backup
+        print '\nDEBUG: Backup  >', backup
         if not os.path.isdir(backup_dir):
             os.mkdir(backup_dir)
         shutil.move( icon.default_path, backup )
@@ -475,27 +482,34 @@ class IconSetEditorDialog:
 
     def replace_icon(self, theme, context, icon, key):
         makelinks = self.makelinks.get_active()
-        print 'DEBUG: Replacement', self.output_location( theme, context, icon )
+        outpath = self.make_outpath(theme, context, icon)
 
-#        if not os.path.exists( os.path.split(path)[0] ):
-#            os.makedirs( os.path.split(path)[0] )
-
-#        if makelinks:
-#            os.symlink( icon.cur_path, path )
-#        else:
-#            import shutil
-#            shutil.copy( icon.cur_path, path )
+        print 'DEBUG: Symlink >', makelinks
+        print 'DEBUG: Outpath >', outpath, '\n'
         return
 
-    def output_location( self, theme, context, icon ):
-        ddst, src = icon.default_path.split('/'), icon.cur_path
-        home = os.path.expanduser('~').split('/')
+    def make_outpath( self, theme, context, icon ):
+        print 'DEBUG: REPLACE ICON!'
+        print 'DEBUG: Source  >', icon.cur_path
+        print 'DEBUG: LTarget >',  os.path.split(icon.default_path)
+        print 'DEBUG: Target  >',  os.path.split( os.path.realpath(icon.default_path) )
+        print 'DEBUG: Theme   >', os.path.split(theme)[0]
 
-        for i in range( len(home) ):
-            ddst[i] = home[i]
-        ddst[i+1] = ".icons"
-        path = src[0]
-        for folder in ddst:
+        thm_uid = os.lstat( os.path.split(theme)[0] ).st_uid
+        trg_uid = os.lstat( os.path.split(icon.default_path)[0] ).st_uid
+        usr_uid = pwd.getpwnam( os.getlogin() ).pw_uid
+
+        if trg_uid == usr_uid:
+            return icon.default_path
+        elif thm_uid == usr_uid:
+            base_split = theme.split('/')[1:-1]
+        else:
+            base_split = os.path.join( os.path.expanduser('~')[1:], ".icons").split('/')
+
+        trg_split = icon.default_path.split('/')[1:]
+        path_split = base_split + trg_split[len(base_split):]
+        path = '/'
+        for folder in path_split:
             path = os.path.join( path, folder )
         return path
 
@@ -553,9 +567,4 @@ class IconSetEditorDialog:
         icon.set_icon( icon.pre_path )
         resetter.set_sensitive(True)
         redoer.set_sensitive(False)
-        return
-
-    def update_icon_preview(self, path, resetter, icon):
-        icon.set_icon( path )
-        resetter.set_sensitive(True)
         return
