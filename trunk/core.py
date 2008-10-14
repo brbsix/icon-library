@@ -194,9 +194,9 @@ class IconLibraryController:
 
     def edit_iconset_cb(self, action, results):
         """ Callback that starts the iconset editor for selected iconset """
-        import dialogs
+        import editor
 
-        Editor = dialogs.IconSetEditorDialog(self.Gui.root)
+        Editor = editor.IconSetEditorDialog(self.Gui.root)
         Editor.run(
             self.Theme,
             self.IconDB,
