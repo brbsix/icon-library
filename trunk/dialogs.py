@@ -57,36 +57,6 @@ class IconSetPopupDialog:
         return
 
 
-class TargetNotFoundDialog:
-    def run(self, rname, rpath, root):
-        dialog = gtk.Dialog(
-            "Target icon not found",
-            root,
-            gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-            (gtk.STOCK_OK, gtk.RESPONSE_OK)
-            )
-        dialog.set_has_separator(False)
-
-        s = "<b>%s</b>\n" % rname
-        s += "%s\n\n" % rpath
-        s += "The icon targeted by this symlink (%s) was not discovered!" % rname
-
-        notice = gtk.Label()
-        notice.set_justify( gtk.JUSTIFY_CENTER )
-        notice.set_size_request( 300, -1 )
-        notice.set_line_wrap( True )
-        notice.set_markup( s )
-
-        dialog.vbox.pack_start( notice, padding=8 )
-        dialog.vbox.show_all()
-
-        response = dialog.run()
-        if response == gtk.RESPONSE_OK:
-            pass
-        dialog.destroy()
-        return
-
-
 class ThemeChangeDialog:
     def __init__(self, root):
         self.dialog = gtk.Dialog(
@@ -95,6 +65,7 @@ class ThemeChangeDialog:
             gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
             (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT)
             )
+        self.dialog.set_size_request(384, 192)
         self.dialog.set_has_separator(False)
         return
 

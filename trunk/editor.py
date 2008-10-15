@@ -78,7 +78,7 @@ class IconSetEditorDialog:
         if response == gtk.RESPONSE_APPLY:
             for icon in iconset:
                 if icon.cur_path and icon.cur_path != icon.default_path:
-                    self.replace_icon(Theme.info[2], context, icon, key)
+                    self.replace(Theme.info[2], context, icon, key)
 
         self.dialog.destroy()
         return
@@ -122,9 +122,11 @@ class IconSetEditorDialog:
             info_table.attach( l_targ, 0, 1, 3, 4, xoptions=gtk.SHRINK )
 
             p,n = os.path.split(path)
+            t = "%s " % os.path.splitext(n)[1][1:].upper()
+            t += "(Linked to %s)" % os.path.splitext( os.path.realpath(path) )[1][1:].upper()
 
             r_name = gtk.Label(n)
-            r_type = gtk.Label("Linked %s" % os.path.splitext(n)[1][1:].upper() )
+            r_type = gtk.Label(t)
             r_path = gtk.Label(p)
             r_targ = gtk.Label( os.path.realpath(path) )
 
@@ -204,11 +206,6 @@ class IconSetEditorDialog:
         selector = gtk.Button("Select replacement icon")
         selector.set_image( gtk.image_new_from_stock(gtk.STOCK_OPEN, gtk.ICON_SIZE_MENU) )
 
-        guesser = gtk.Button()
-        guesser.set_image( gtk.image_new_from_stock(gtk.STOCK_SORT_DESCENDING, gtk.ICON_SIZE_MENU) )
-        guesser.set_tooltip_text("Guess other replacement icons")
-        guesser.set_sensitive(False)
-
         resetter = gtk.Button()
         resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
         resetter.set_tooltip_text("Restore default icon")
@@ -216,7 +213,7 @@ class IconSetEditorDialog:
 
         redoer = gtk.Button()
         redoer.set_image( gtk.image_new_from_stock(gtk.STOCK_REDO, gtk.ICON_SIZE_MENU) )
-        redoer.set_tooltip_text("Redo change")
+        redoer.set_tooltip_text("Redo last change")
         redoer.set_sensitive(False)
         redoer.set_size_request(24, -1)
 
@@ -239,7 +236,7 @@ class IconSetEditorDialog:
 
         resetter.connect(
             "clicked",
-            self.reset_default_icon_path_cb,
+            self.reset_default_cb,
             redoer,
             resetter,
             icon
@@ -248,57 +245,21 @@ class IconSetEditorDialog:
         btn_hbox = gtk.HBox()
         btn_hbox.set_border_width(5)
         btn_hbox.pack_start(selector)
-        btn_hbox.pack_start(guesser)
         btn_hbox.pack_start(resetter)
         btn_hbox.pack_start(redoer)
 
         page.pack_start( info_table, False, padding=10 )
-        page.pack_start( icon_hbox, False, False, padding=5 )
-        page.pack_start( btn_hbox, False, False, padding=3 )
+        page.pack_end( btn_hbox, False, False, padding=3 )
+        page.pack_end( icon_hbox, False, False, padding=5 )
 
         self.notebook.append_page( page )
         self.notebook.set_tab_label_text( page, tab_label )
         return icon
 
-    def update_icon_preview(self, path, resetter, icon):
-        icon.set_icon( path )
-        resetter.set_sensitive(True)
-        return
-
-    def update_db_pixbuf(self, Theme, IconDB, name, key):
-        pb16 = Theme.load_icon( name, 16, 0 )
-        pb24 = Theme.load_icon( name, 24, 0 )
-        pb32 = Theme.load_icon( name, 32, 0 )
-        IconDB.pixbuf_cache[key] = (pb16, pb24, pb32)
-        return
-
-    def update_db_entry(self, IconDB):
-        pass
-
-    def backup_icon(self, icon, key):
-        backup_dir = os.path.join(os.getcwd(), 'backup')
-        backup = os.path.join(
-            backup_dir,
-            os.path.split( icon.default_path)[1]+'.backup.'+str( time.time() )
-            )
-
-        print '\nDEBUG: Backup  >', backup
-        if not os.path.isdir(backup_dir):
-            os.mkdir(backup_dir)
-        shutil.move( icon.default_path, backup )
-        return
-
-    def replace_icon(self, theme, context, icon, key):
-        makelinks = self.makelinks.get_active()
-        outpath = self.make_outpath(theme, context, icon)
-
-        print 'DEBUG: Symlink >', makelinks
-        print 'DEBUG: Outpath >', outpath, '\n'
-        return
-
-    def make_outpath( self, theme, context, icon ):
-        print 'DEBUG: REPLACE ICON!'
+    def make_destination( self, theme, context, icon ):
+        print '\nDEBUG: REPLACE ICON!'
         print 'DEBUG: Source  >', icon.cur_path
+        print 'DEBUG: Size    >', icon.size
         print 'DEBUG: LTarget >',  os.path.split(icon.default_path)
         print 'DEBUG: Target  >',  os.path.split( os.path.realpath(icon.default_path) )
         print 'DEBUG: Theme   >', os.path.split(theme)[0]
@@ -308,18 +269,88 @@ class IconSetEditorDialog:
         usr_uid = pwd.getpwnam( os.getlogin() ).pw_uid
 
         if trg_uid == usr_uid:
-            return icon.default_path
+            dst_split = icon.default_path.split('/')
+            dst_plsit = self.check_dst_size(icon.size, dst_split)
+            dst_split = self.check_dst_ext(icon.cur_path, dst_split)
+            dst = '/'
+            for folder in dst_split:
+                dst = os.path.join(dst, folder)
+            return icon.cur_path, dst
+
         elif thm_uid == usr_uid:
             base_split = theme.split('/')[1:-1]
         else:
             base_split = os.path.join( os.path.expanduser('~')[1:], ".icons").split('/')
 
         trg_split = icon.default_path.split('/')[1:]
-        path_split = base_split + trg_split[len(base_split):]
-        path = '/'
-        for folder in path_split:
-            path = os.path.join( path, folder )
-        return path
+
+        dst_split = base_split + trg_split[len(base_split):]
+        dst_split = self.check_dst_size(icon.size, dst_split)
+        dst_split = self.check_dst_ext(icon.cur_path, dst_split)
+        dst = '/'
+        for folder in dst_split:
+            dst = os.path.join(dst, folder)
+        return icon.cur_path, dst
+
+    def check_dst_size(self, size, dst_split):
+        if str(size) not in dst_split[-3]:
+            if type(size) == str:
+                dst_split[-3] = size
+            else:
+                dst_split[-3] = "%sx%s" % (size, size)
+        return dst_split
+
+    def check_dst_ext(self, src, dst_split):
+        src_ext = os.path.splitext(src)[1]
+        dst_fn, dst_ext = os.path.splitext(dst_split[-1])
+
+        if src_ext != dst_ext:
+            dst_split[-1] = dst_fn + src_ext
+        return dst_split
+
+    def backup(self, src):
+        backup_dir = os.path.join(os.getcwd(), 'backup')
+        backup = os.path.join(
+            backup_dir,
+            os.path.split(src)[1] + '.backup.' + str( time.time() )
+            )
+
+        if not os.path.isdir(backup_dir):
+            os.mkdir(backup_dir)
+        shutil.copy( src, backup )
+
+        print 'DEBUG: Backup  >', backup
+        return
+
+    def replace(self, theme, context, icon, key):
+        src, dst = self.make_destination(theme, context, icon)
+        print "DEBUG: Outpath >", dst
+
+        try:
+            if self.makelinks.get_active():
+                self.symlink(src, dst)
+            else:
+                self.copy()
+        except Exception, inst:
+            print "DEBUG: Error   >", inst
+        return
+
+    def symlink(self, src, dst):
+        if os.path.lexists(dst):
+            self.backup(dst)
+            os.remove(dst)
+
+        d = os.path.split(dst)[0]
+        if not os.path.isdir(d):
+            os.makedirs(d)
+
+        os.symlink(src, dst)
+        print "DEBUG: Symlinking... Success!"
+        return
+
+    def copy(self):
+        print "DEBUG: Copy... Success!"
+        return
 
     def icon_chooser_dialog_cb(self, selector, resetter, icon, iconset_context, iconset_name ):
         title = "Select a %sx%s/%s/%s icon..." 
@@ -361,11 +392,13 @@ class IconSetEditorDialog:
 
         response = chooser.run()
         if response == gtk.RESPONSE_OK:
-            self.update_icon_preview(chooser.get_filename(), resetter, icon)
+            icon.set_icon( chooser.get_filename() ) 
+            resetter.set_sensitive(True) 
+
         chooser.destroy()
         return
 
-    def reset_default_icon_path_cb(self, event, redoer, resetter, icon):
+    def reset_default_cb(self, event, redoer, resetter, icon):
         icon.reset_default_icon()
         redoer.set_sensitive(True)
         resetter.set_sensitive(False)

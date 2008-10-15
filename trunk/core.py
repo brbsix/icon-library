@@ -224,14 +224,33 @@ class IconLibraryController:
                 found = True
                 break
         if not found:
-            import dialogs
-
-            Dialog = dialogs.TargetNotFoundDialog()
-            Dialog.run(
-                rname,
-                rpath,
-                self.Gui.root
+            d = gtk.MessageDialog(
+                parent=self.Gui.root,
+                flags=(gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT),
+                type=gtk.MESSAGE_WARNING,
+                buttons=gtk.BUTTONS_CLOSE,
                 )
+
+            m = "<big><b><span foreground=\"#FF09FF\">%s</span> was not found</b></big>"
+            d.set_markup(m % rname)
+
+            s = "The icon set targeted by this symlink was not discovered."
+            s += "\n\nIf you have filtered the icons by context or word, "
+            s += "then the icon set is probably not in the current list.  "
+            s += "In which case, try the action again with an un-filtered view."
+
+            d.format_secondary_text(s)
+
+            d.set_image(
+                gtk.image_new_from_stock(
+                    gtk.STOCK_DIALOG_WARNING,
+                    gtk.ICON_SIZE_DIALOG
+                    )
+                )
+
+            d.image.show()
+            d.run()
+            d.destroy()
         return
 
     def context_filter_cb(self, treeview):
@@ -744,22 +763,10 @@ class IconDatabase:
 
         for ctx in contexts:
             for ico in Theme.list_icons(ctx):
-                error = False
 
-                try:
-                    k = Theme.lookup_icon(ico, 22, 0).get_filename()
-                    k = os.path.realpath( k )
-                    k = os.path.splitext( os.path.split(k)[1] )[0]
-                    if not self.pixbuf_cache.has_key(k):
-                        pb16 = Theme.load_icon( ico, 16, 0 )
-                        pb24 = Theme.load_icon( ico, 24, 0 )
-                        pb32 = Theme.load_icon( ico, 32, 0 )
-                        self.pixbuf_cache[k] = (pb16, pb24, pb32)
-                except:
-                    error = True
-                    print "Error loading icon %s, skipping..." % ico
+                k = self.iconset_key(Theme, ico)
 
-                if not error:
+                if self.update_pixbuf_cache(Theme, ico, k):
                     scalable = -1 in Theme.get_icon_sizes(ico)
                     standard = NamingSpec.isstandard(ctx, ico)
                     cursor.execute(
@@ -767,6 +774,9 @@ class IconDatabase:
                         (k, ico, ctx, standard, scalable)
                         )
                     i += 1
+                else:
+                    print "Error: %s - Failed to load a pixbuf. Skipping..." % ico
+
             j += 1
 
             if progressbar:
@@ -778,6 +788,7 @@ class IconDatabase:
         conn.commit()
         cursor.close()
         self.length = i
+        print "DEBUG: IconDatabse created!\n"
         return
 
     def load( self ):
@@ -787,6 +798,23 @@ class IconDatabase:
         self.conn = sqlite3.connect("/tmp/icondb.sqlite3")
         self.cursor = self.conn.cursor()
         return
+
+    def iconset_key(self, Theme, name):
+        k = Theme.lookup_icon(name, 22, 0).get_filename()
+        k = os.path.realpath( k )
+        k = os.path.splitext( os.path.split(k)[1] )[0]
+        return k
+
+    def update_pixbuf_cache(self, Theme, name, k):
+        try:
+            if not self.pixbuf_cache.has_key(k):
+                pb16 = Theme.load_icon( name, 16, 0 )
+                pb24 = Theme.load_icon( name, 24, 0 )
+                pb32 = Theme.load_icon( name, 32, 0 )
+                self.pixbuf_cache[k] = (pb16, pb24, pb32)
+            return True
+        except:
+            return False
 
     def search(self, term):
         if len(threading.enumerate()) == 1:
@@ -821,11 +849,11 @@ class IconDatabase:
                 query += " ORDER BY context, name"
         return query
 
-    def update_pixbuf_cache( self, k, index, pixbuf ):
-        pb_list = list( self.pixbuf_cache[k] )
-        pb_list[index] = pixbuf
-        self.pixbuf_cache[k] = tuple( pb_list )
-        return
+#    def update_pixbuf_cache( self, k, index, pixbuf ):
+#        pb_list = list( self.pixbuf_cache[k] )
+#        pb_list[index] = pixbuf
+#        self.pixbuf_cache[k] = tuple( pb_list )
+#        return
 
     def set_context_filter(self, context):
         """ Sets the context filter string """
