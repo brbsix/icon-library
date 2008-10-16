@@ -52,7 +52,7 @@ class IconSetEditorDialog:
             sizes += "scalable",
 
         self.header.set_markup(
-            "<b>%s</b>\n<span size=\"small\">%s</span>" % (name, context)
+            "<b>%s</b>\n<span size=\"small\">%s - %s</span>" % (name, Theme.info[1], context)
             )
         self.header.set_justify(gtk.JUSTIFY_CENTER)
 
@@ -135,6 +135,10 @@ class IconSetEditorDialog:
         selector = gtk.Button("Select replacement icon")
         selector.set_image( gtk.image_new_from_stock(gtk.STOCK_OPEN, gtk.ICON_SIZE_MENU) )
 
+        browser = gtk.Button()
+        browser.set_image( gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU) )
+        browser.set_tooltip_text("Open folder")
+
         resetter = gtk.Button()
         resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
         resetter.set_tooltip_text("Restore default icon")
@@ -151,6 +155,12 @@ class IconSetEditorDialog:
             self.icon_chooser_dialog_cb,
             resetter,
             Icon
+            )
+
+        browser.connect(
+            "clicked",
+            self.gnome_open_cb,
+            path
             )
 
         redoer.connect(
@@ -172,6 +182,7 @@ class IconSetEditorDialog:
         btn_hbox = gtk.HBox()
         btn_hbox.set_border_width(5)
         btn_hbox.pack_start(selector)
+        btn_hbox.pack_start(browser)
         btn_hbox.pack_start(resetter)
         btn_hbox.pack_start(redoer)
 
@@ -307,28 +318,23 @@ class IconSetEditorDialog:
         if os.path.isdir(home_icons):
             chooser.add_shortcut_folder(home_icons)
 
-        fltr = gtk.FileFilter()
-        if size != "scalable":
-            fltr.set_name("Images")
-            fltr.add_mime_type("image/png")
-            fltr.add_mime_type("image/jpeg")
-            fltr.add_mime_type("image/svg+xml")
-            fltr.add_pattern("*.png")
-            fltr.add_pattern("*.jpg")
-            fltr.add_pattern(".svg")
-            fltr.add_pattern(".svgz")
-            fltr.add_pattern("*.xpm")
-        else:
-            fltr.set_name("SVG")
-            fltr.add_mime_type("image/svg+xml")
-            fltr.add_pattern(".svg")
-            fltr.add_pattern(".svgz")
-        chooser.add_filter(fltr)
+        f = gtk.FileFilter()
 
-        fltr = gtk.FileFilter()
-        fltr.set_name("All files")
-        fltr.add_pattern("*")
-        chooser.add_filter(fltr)
+        f.set_name("Images")
+        f.add_mime_type("image/png")
+        f.add_mime_type("image/jpeg")
+        f.add_mime_type("image/svg+xml")
+        f.add_pattern("*.png")
+        f.add_pattern("*.jpg")
+        f.add_pattern(".svg")
+        f.add_pattern(".svgz")
+        f.add_pattern("*.xpm")
+        chooser.add_filter(f)
+
+        f = gtk.FileFilter()
+        f.set_name("All files")
+        f.add_pattern("*")
+        chooser.add_filter(f)
 
         response = chooser.run()
         if response == gtk.RESPONSE_OK:
@@ -341,6 +347,10 @@ class IconSetEditorDialog:
             resetter.set_sensitive(True)
 
         chooser.destroy()
+        return
+
+    def gnome_open_cb(self, button, path):
+        os.system("gnome-open %s" % os.path.split(kw[-1])[0])
         return
 
     def reset_default_cb(self, event, redoer, resetter, Icon):
