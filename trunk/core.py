@@ -328,7 +328,7 @@ class IconLibraryGui:
             )
 
         custom = gtk.Button()
-        custom.set_tooltip_text("Manually select an icon theme")
+        custom.set_tooltip_text("Import an icon theme")
         custom.set_size_request(33, -1)
         custom.set_image(
             gtk.image_new_from_icon_name("document-open", gtk.ICON_SIZE_SMALL_TOOLBAR)
@@ -608,7 +608,7 @@ class IconLibraryGui:
 
     def custom_cb(self, button, Theme, theme_sel):
         chooser = gtk.FileChooserDialog(
-            "Select a custom theme",
+            "Import an icon theme",
             action=gtk.FILE_CHOOSER_ACTION_OPEN,
             buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN,gtk.RESPONSE_OK)
             )

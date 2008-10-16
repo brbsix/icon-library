@@ -101,7 +101,7 @@ class ThemeChangeDialog:
         header.set_text("Select a new icon theme to view") 
 
         custom = gtk.Button()
-        custom.set_tooltip_text("Manually select an icon theme")
+        custom.set_tooltip_text("Import an icon theme")
         custom.set_size_request(33, -1)
 
         custom.set_image(
@@ -157,7 +157,7 @@ class ThemeChangeDialog:
 
     def custom_cb(self, button, Theme, theme_sel):
         chooser = gtk.FileChooserDialog(
-            "Select a custom theme",
+            "Import an icon theme",
             action=gtk.FILE_CHOOSER_ACTION_OPEN,
             buttons=(
                 gtk.STOCK_CANCEL,
