@@ -44,16 +44,25 @@ class IconSetPopupDialog:
         if pthinfo is not None:
             treeview.grab_focus()
             path, col, cellx, celly = pthinfo
-            results = Controller.IconDB.results[path[0]]
+            iconset_data = Controller.IconDB.results[path[0]]
 
             edit_action, jump_action = menuitems
-            if not results[0] != results[1]:
+            if not iconset_data[0] != iconset_data[1]:
                 jump_action.set_sensitive(False)
 
-            edit_action.connect("activate", Controller.edit_iconset_cb, results)
-            jump_action.connect("activate", Controller.jump_to_icon_cb, results)
+            edit_action.connect(
+                "activate",
+                Controller.edit_iconset_cb,
+                iconset_data
+                )
 
-            popup.popup( None, None, None, event.button, time)
+            jump_action.connect(
+                "activate",
+                Controller.jump_to_icon_cb,
+                iconset_data
+                )
+
+            popup.popup(None, None, None, event.button, time)
         return
 
 
@@ -65,7 +74,7 @@ class ThemeChangeDialog:
             gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
             (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT)
             )
-        self.dialog.set_size_request(384, 192)
+        self.dialog.set_size_request(300, 192)
         self.dialog.set_has_separator(False)
         return
 
@@ -88,14 +97,18 @@ class ThemeChangeDialog:
         theme_sel.set_tooltip_text("Select an icon theme") 
 
         header = gtk.Label() 
-        header.set_justify( gtk.JUSTIFY_CENTER )
+        header.set_justify(gtk.JUSTIFY_CENTER)
         header.set_text("Select a new icon theme to view") 
 
         custom = gtk.Button()
         custom.set_tooltip_text("Manually select an icon theme")
         custom.set_size_request(33, -1)
+
         custom.set_image(
-            gtk.image_new_from_icon_name("document-open", gtk.ICON_SIZE_SMALL_TOOLBAR)
+            gtk.image_new_from_stock(
+                gtk.STOCK_OPEN,
+                gtk.ICON_SIZE_SMALL_TOOLBAR
+                )
             )
 
         greeter_main_align = gtk.Alignment(xalign=0.5, yalign=0.5)
@@ -136,7 +149,7 @@ class ThemeChangeDialog:
             progress = gtk.ProgressBar()
             progress.show()
 
-            dialog.vbox.pack_end( progress, padding=8 )
+            greeter_vbox.pack_end(progress, padding=8)
             return new_theme, progress
         else:
             dialog.destroy()
@@ -146,7 +159,12 @@ class ThemeChangeDialog:
         chooser = gtk.FileChooserDialog(
             "Select a custom theme",
             action=gtk.FILE_CHOOSER_ACTION_OPEN,
-            buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN,gtk.RESPONSE_OK)
+            buttons=(
+                gtk.STOCK_CANCEL,
+                gtk.RESPONSE_CANCEL,
+                gtk.STOCK_OPEN,
+                gtk.RESPONSE_OK
+                )
             )
 
         fltr = gtk.FileFilter()

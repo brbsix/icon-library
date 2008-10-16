@@ -132,11 +132,10 @@ class ColorSwatch(gtk.DrawingArea):
         return self.bg, self.text_normal, self.text_insensitive, self.default
 
 
-class IconDataPreview(gtk.DrawingArea):
+class IconPreview(gtk.DrawingArea):
     def __init__(self, path, size):
         gtk.DrawingArea.__init__(self)
         self.path = path
-        self.size = size
 
         self.default_path = path
         self.cur_path = None

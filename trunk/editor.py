@@ -14,7 +14,7 @@ import gtk
 import pwd
 import time
 import shutil
-from custom_widgets import IconDataPreview
+from custom_widgets import IconPreview
 
 
 class IconSetEditorDialog:
@@ -25,24 +25,23 @@ class IconSetEditorDialog:
             gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
             (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_APPLY, gtk.RESPONSE_APPLY)
             )
-        self.dialog.set_has_separator( False )
+        self.dialog.set_has_separator(False)
 
         self.header = gtk.Label()
-        self.header.set_alignment( 0.5, 0.5 )
+        self.header.set_alignment(0.5, 0.5)
 
         self.notebook = gtk.Notebook()
-        self.notebook.set_tab_pos( gtk.POS_BOTTOM )
-        self.notebook.set_size_request( 300, -1 )
-        self.notebook.set_scrollable( True )
-        
-        self.dialog.vbox.pack_start( self.header, padding=6 )
-        self.dialog.vbox.pack_start( self.notebook, padding=8 )
+        self.notebook.set_tab_pos(gtk.POS_BOTTOM)
+        self.notebook.set_size_request(300, -1)
+        self.notebook.set_scrollable(True)
+
+        self.dialog.vbox.pack_start(self.header, padding=6)
+        self.dialog.vbox.pack_start(self.notebook, padding=8)
         return
 
-    def run(self, Theme, IconDB, iconset_data):
+    def run(self, Theme, IconDB, Store, iconset_data):
         context = iconset_data[2]
         name = iconset_data[1]
-        key = iconset_data[0]
 
         iconset = ()
         sizes = list( Theme.get_icon_sizes(name) )
@@ -53,155 +52,85 @@ class IconSetEditorDialog:
             sizes += "scalable",
 
         self.header.set_markup(
-            "<b>%s</b>\n<span size=\"small\">%s</span>" % ( name, context )
+            "<b>%s</b>\n<span size=\"small\">%s</span>" % (name, context)
             )
-        self.header.set_justify( gtk.JUSTIFY_CENTER )
+        self.header.set_justify(gtk.JUSTIFY_CENTER)
 
-        color = self.dialog.get_style().text[gtk.STATE_INSENSITIVE].to_string()
-
+        l_color = self.dialog.get_style().text[gtk.STATE_INSENSITIVE].to_string()
         for size in sizes:
-            icon = self.make_and_append_page(
+            Icon = self.make_and_append_page(
                 Theme,
                 context,
                 name,
                 size,
-                color
+                l_color
                 )
-            iconset += icon,
+            iconset += Icon,
 
-        self.makelinks = gtk.CheckButton("Replace with symlinks", False)
-        self.makelinks.set_active(True)
-        self.dialog.vbox.pack_start(self.makelinks, False, False, padding=3)
+        self.use_links = gtk.CheckButton(
+            "Replace icons with symlinks (Recommended)",
+            False
+            )
+
+        self.use_links.set_active(True)
+        self.dialog.vbox.pack_start(self.use_links, False, False, padding=3)
+
+        self.use_links.connect(
+            "toggled",
+            self.use_links_toggled_cb,
+            Icon
+            )
 
         self.dialog.vbox.show_all()
         response = self.dialog.run()
+
+        update_needed = False
+
         if response == gtk.RESPONSE_APPLY:
-            for icon in iconset:
-                if icon.cur_path and icon.cur_path != icon.default_path:
-                    self.replace(Theme.info[2], context, icon, key)
+            for Icon in iconset:
+                if Icon.preview.cur_path \
+                and Icon.preview.cur_path != Icon.preview.default_path:
+                    self.replace(Icon)
+                    update_needed = True
+
+            if update_needed:
+                IconDB.pixbuf_cache_update(
+                    Theme,
+                    name,
+                    iconset_data[0] # key
+                    )
+
+                Store.model2.clear()
+                Store.model2_set_info(
+                    IconDB.results,
+                    IconDB.pixbuf_cache
+                    )
 
         self.dialog.destroy()
         return
 
-    def make_and_append_page( self, Theme, iconset_context, iconset_name, size, color ):
+    def make_and_append_page(self, Theme, context, name, size, l_color):
         if type(size) == int:
-            path = Theme.lookup_icon(iconset_name, size, 0).get_filename()
+            path = Theme.lookup_icon(name, size, 0).get_filename()
             tab_label = "%sx%s" % (size, size)
         else:
-            path = Theme.lookup_icon(iconset_name, 64, 0).get_filename()
+            path = Theme.lookup_icon(name, 64, 0).get_filename()
             tab_label = size
 
-        page = gtk.VBox()
+        Icon = IconInfo(l_color)
+        Icon.set_info(
+            Theme.info[2],
+            context,
+            name,
+            size,
+            path
+            )
 
-        if os.path.islink( path ):
-            info_table = gtk.Table(rows=4, columns=2)
-
-            l_name = gtk.Label()
-            l_type = gtk.Label()
-            l_link = gtk.Label()
-            l_targ = gtk.Label()
-
-            l_name.set_markup( "<span foreground=\"%s\"><b>Name</b></span>" % color )
-            l_type.set_markup( "<span foreground=\"%s\"><b>Type</b></span>" % color )
-            l_link.set_markup( "<span foreground=\"%s\"><b>Path</b></span>" % color )
-            l_targ.set_markup( "<span foreground=\"%s\"><b>Target</b></span>" % color )
-
-            l_name.set_size_request(48, -1)
-            l_type.set_size_request(48, -1)
-            l_link.set_size_request(48, -1)
-            l_targ.set_size_request(48, -1)
-
-            l_name.set_alignment(1, 0.5)
-            l_type.set_alignment(1, 0.5)
-            l_link.set_alignment(1, 0.5)
-            l_targ.set_alignment(1, 0.5)
-
-            info_table.attach( l_name, 0, 1, 0, 1, xoptions=gtk.SHRINK )
-            info_table.attach( l_link, 0, 1, 1, 2, xoptions=gtk.SHRINK )
-            info_table.attach( l_type, 0, 1, 2, 3, xoptions=gtk.SHRINK )
-            info_table.attach( l_targ, 0, 1, 3, 4, xoptions=gtk.SHRINK )
-
-            p,n = os.path.split(path)
-            t = "%s " % os.path.splitext(n)[1][1:].upper()
-            t += "(Linked to %s)" % os.path.splitext( os.path.realpath(path) )[1][1:].upper()
-
-            r_name = gtk.Label(n)
-            r_type = gtk.Label(t)
-            r_path = gtk.Label(p)
-            r_targ = gtk.Label( os.path.realpath(path) )
-
-            r_name.set_alignment(0, 0.5)
-            r_type.set_alignment(0, 0.5)
-            r_path.set_alignment(0, 0.5)
-            r_targ.set_alignment(0, 0.5)
-
-            r_name.set_size_request(225, -1)
-            r_path.set_size_request(225, -1)
-            r_targ.set_size_request(225, -1)
-
-            r_name.set_line_wrap( True )
-            r_path.set_line_wrap( True )
-            r_targ.set_line_wrap( True )
-
-            r_name.set_selectable( True )
-            r_path.set_selectable( True )
-            r_targ.set_selectable( True )
-
-            info_table.attach( r_name, 1, 2, 0, 1, xpadding=10, ypadding=3 )
-            info_table.attach( r_path, 1, 2, 1, 2, xpadding=10, ypadding=3 )
-            info_table.attach( r_type, 1, 2, 2, 3, xpadding=10, ypadding=3 )
-            info_table.attach( r_targ, 1, 2, 3, 4, xpadding=10, ypadding=3 )
-
-        else:
-            info_table = gtk.Table(rows=3, columns=2)
-
-            l_name = gtk.Label()
-            l_type = gtk.Label()
-            l_path = gtk.Label()
-
-            l_name.set_markup( "<span foreground=\"%s\"><b>Name</b></span>" % color )
-            l_type.set_markup( "<span foreground=\"%s\"><b>Type</b></span>" % color )
-            l_path.set_markup( "<span foreground=\"%s\"><b>Path</b></span>" % color )
-
-            l_name.set_size_request(48, -1)
-            l_type.set_size_request(48, -1)
-            l_path.set_size_request(48, -1)
-
-            l_name.set_alignment(1, 0.5)
-            l_type.set_alignment(1, 0.5)
-            l_path.set_alignment(1, 0.5)
-
-            info_table.attach( l_name, 0, 1, 0, 1, xoptions=gtk.SHRINK )
-            info_table.attach( l_path, 0, 1, 1, 2, xoptions=gtk.SHRINK )
-            info_table.attach( l_type, 0, 1, 2, 3, xoptions=gtk.SHRINK )
-
-            p,n = os.path.split(path)
-
-            r_name = gtk.Label(n)
-            r_type = gtk.Label("%s" % os.path.splitext(n)[1][1:].upper() )
-            r_path = gtk.Label(p)
-
-            r_name.set_alignment(0, 0.5)
-            r_type.set_alignment(0, 0.5)
-            r_path.set_alignment(0, 0.5)
-
-            r_name.set_size_request(225, -1)
-            r_path.set_size_request(225, -1)
-
-            r_name.set_line_wrap( True )
-            r_path.set_line_wrap( True )
-
-            r_name.set_selectable( True )
-            r_path.set_selectable( True )
-
-            info_table.attach( r_name, 1, 2, 0, 1, xpadding=10, ypadding=3 )
-            info_table.attach( r_path, 1, 2, 1, 2, xpadding=10, ypadding=3 )
-            info_table.attach( r_type, 1, 2, 2, 3, xpadding=10, ypadding=3 )
-
-        icon = IconDataPreview(path, size)
+        info_table = Icon.get_table()
+        preview = Icon.get_preview()
 
         icon_hbox = gtk.HBox()
-        icon_hbox.pack_start( icon, padding=5 )
+        icon_hbox.pack_start(preview, padding=5)
 
         selector = gtk.Button("Select replacement icon")
         selector.set_image( gtk.image_new_from_stock(gtk.STOCK_OPEN, gtk.ICON_SIZE_MENU) )
@@ -221,9 +150,7 @@ class IconSetEditorDialog:
             "clicked",
             self.icon_chooser_dialog_cb,
             resetter,
-            icon,
-            iconset_context,
-            iconset_name
+            Icon
             )
 
         redoer.connect(
@@ -231,7 +158,7 @@ class IconSetEditorDialog:
             self.redo_cb,
             redoer,
             resetter,
-            icon
+            Icon
             )
 
         resetter.connect(
@@ -239,7 +166,7 @@ class IconSetEditorDialog:
             self.reset_default_cb,
             redoer,
             resetter,
-            icon
+            Icon
             )
 
         btn_hbox = gtk.HBox()
@@ -248,49 +175,47 @@ class IconSetEditorDialog:
         btn_hbox.pack_start(resetter)
         btn_hbox.pack_start(redoer)
 
-        page.pack_start( info_table, False, padding=10 )
-        page.pack_end( btn_hbox, False, False, padding=3 )
-        page.pack_end( icon_hbox, False, False, padding=5 )
+        page = gtk.VBox()
 
-        self.notebook.append_page( page )
-        self.notebook.set_tab_label_text( page, tab_label )
-        return icon
+        page.pack_start(info_table, False, padding=10)
+        page.pack_end(btn_hbox, False, False, padding=3)
+        page.pack_end(icon_hbox, False, False, padding=5)
 
-    def make_destination( self, theme, context, icon ):
-        print '\nDEBUG: REPLACE ICON!'
-        print 'DEBUG: Source  >', icon.cur_path
-        print 'DEBUG: Size    >', icon.size
-        print 'DEBUG: LTarget >',  os.path.split(icon.default_path)
-        print 'DEBUG: Target  >',  os.path.split( os.path.realpath(icon.default_path) )
-        print 'DEBUG: Theme   >', os.path.split(theme)[0]
+        self.notebook.append_page(page)
+        self.notebook.set_tab_label_text(page, tab_label)
+        return Icon
+
+    def make_destination(self, Icon):
+        theme, context = Icon.theme, Icon.context
+        size, name, preview = Icon.size, Icon.name, Icon.preview
 
         thm_uid = os.lstat( os.path.split(theme)[0] ).st_uid
-        trg_uid = os.lstat( os.path.split(icon.default_path)[0] ).st_uid
+        trg_uid = os.lstat( os.path.split(preview.default_path)[0] ).st_uid
         usr_uid = pwd.getpwnam( os.getlogin() ).pw_uid
 
         if trg_uid == usr_uid:
-            dst_split = icon.default_path.split('/')
-            dst_plsit = self.check_dst_size(icon.size, dst_split)
-            dst_split = self.check_dst_ext(icon.cur_path, dst_split)
+            dst_split = preview.default_path.split('/')
+            dst_plsit = self.check_dst_size(size, dst_split)
+            dst_split = self.check_dst_ext(preview.cur_path, dst_split)
             dst = '/'
             for folder in dst_split:
                 dst = os.path.join(dst, folder)
-            return icon.cur_path, dst
+            return preview.cur_path, dst
 
         elif thm_uid == usr_uid:
             base_split = theme.split('/')[1:-1]
         else:
-            base_split = os.path.join( os.path.expanduser('~')[1:], ".icons").split('/')
+            base_split = os.path.join( os.path.expanduser('~')[1:], ".icons" ).split('/')
 
-        trg_split = icon.default_path.split('/')[1:]
+        trg_split = preview.default_path.split('/')[1:]
 
         dst_split = base_split + trg_split[len(base_split):]
-        dst_split = self.check_dst_size(icon.size, dst_split)
-        dst_split = self.check_dst_ext(icon.cur_path, dst_split)
+        dst_split = self.check_dst_size(size, dst_split)
+        dst_split = self.check_dst_ext(preview.cur_path, dst_split)
         dst = '/'
         for folder in dst_split:
             dst = os.path.join(dst, folder)
-        return icon.cur_path, dst
+        return preview.cur_path, dst
 
     def check_dst_size(self, size, dst_split):
         if str(size) not in dst_split[-3]:
@@ -322,15 +247,21 @@ class IconSetEditorDialog:
         print 'DEBUG: Backup  >', backup
         return
 
-    def replace(self, theme, context, icon, key):
-        src, dst = self.make_destination(theme, context, icon)
+    def replace(self, Icon):
+        src, dst = self.make_destination(Icon)
+
+        print '\nDEBUG: REPLACE ICON!'
+        print 'DEBUG: Source  >', Icon.preview.cur_path
+        print 'DEBUG: Size    >', Icon.size
+        print 'DEBUG: Target  >', os.path.split(Icon.preview.default_path)
+        print 'DEBUG: Theme   >', os.path.split(Icon.theme)[0]
         print "DEBUG: Outpath >", dst
 
         try:
-            if self.makelinks.get_active():
+            if self.use_links.get_active():
                 self.symlink(src, dst)
             else:
-                self.copy()
+                self.copy(src, dst)
         except Exception, inst:
             print "DEBUG: Error   >", inst
         return
@@ -348,27 +279,36 @@ class IconSetEditorDialog:
         print "DEBUG: Symlinking... Success!"
         return
 
-    def copy(self):
+    def copy(self, src, dst):
+        if os.path.lexists(dst):
+            self.backup(dst)
+            os.remove(dst)
+
+        d = os.path.split(dst)[0]
+        if not os.path.isdir(d):
+            os.makedirs(d)
+
+        shutil.copy(src, dst)
         print "DEBUG: Copy... Success!"
         return
 
-    def icon_chooser_dialog_cb(self, selector, resetter, icon, iconset_context, iconset_name ):
-        title = "Select a %sx%s/%s/%s icon..." 
-        title = title % (icon.size, icon.size, iconset_context.lower(), iconset_name)
-
+    def icon_chooser_dialog_cb(self, selector, resetter, Icon):
+        title = "Select a %sx%s/%s/%s icon..."
+        size = Icon.size
+        
         chooser = gtk.FileChooserDialog(
-            title,
+            title % (size, size, Icon.context.lower(), Icon.name),
             action=gtk.FILE_CHOOSER_ACTION_OPEN,
             buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN,gtk.RESPONSE_OK)
             )
 
         chooser.add_shortcut_folder("/usr/share/icons")
-        home_icons = os.path.expanduser( "~/.icons" )
-        if os.path.isdir( home_icons ):
-            chooser.add_shortcut_folder( home_icons )
+        home_icons = os.path.expanduser("~/.icons")
+        if os.path.isdir(home_icons):
+            chooser.add_shortcut_folder(home_icons)
 
         fltr = gtk.FileFilter()
-        if icon.size != "scalable":
+        if size != "scalable":
             fltr.set_name("Images")
             fltr.add_mime_type("image/png")
             fltr.add_mime_type("image/jpeg")
@@ -392,20 +332,143 @@ class IconSetEditorDialog:
 
         response = chooser.run()
         if response == gtk.RESPONSE_OK:
-            icon.set_icon( chooser.get_filename() ) 
-            resetter.set_sensitive(True) 
+            fn = chooser.get_filename()
+            Icon.preview.set_icon(fn)
+
+            src, dst = self.make_destination(Icon)
+            Icon.update_table(dst, src, self.use_links.get_active())
+
+            resetter.set_sensitive(True)
 
         chooser.destroy()
         return
 
-    def reset_default_cb(self, event, redoer, resetter, icon):
-        icon.reset_default_icon()
+    def reset_default_cb(self, event, redoer, resetter, Icon):
+        Icon.preview.reset_default_icon()
+        Icon.update_table(Icon.preview.default_path)
+
         redoer.set_sensitive(True)
         resetter.set_sensitive(False)
         return
 
-    def redo_cb(self, event, redoer, resetter, icon):
-        icon.set_icon( icon.pre_path )
+    def redo_cb(self, event, redoer, resetter, Icon):
+        Icon.preview.set_icon(Icon.preview.pre_path)
+        src, dst = self.make_destination(Icon)
+        Icon.update_table(dst, src, self.use_links.get_active())
+
         resetter.set_sensitive(True)
         redoer.set_sensitive(False)
         return
+
+    def use_links_toggled_cb(self, checkbutton, Icon):
+        cur_path = Icon.preview.cur_path
+        if cur_path and cur_path != Icon.preview.default_path:
+            src, dst = self.make_destination(Icon)
+            Icon.update_table(dst, src, checkbutton.get_active())
+        return
+
+
+class IconInfo:
+    def __init__(self, l_color):
+        self.l_color = l_color
+
+        l_name = gtk.Label()
+        l_type = gtk.Label()
+        l_path = gtk.Label()
+        l_targ = gtk.Label()
+
+        r_name = gtk.Label()
+        r_type = gtk.Label()
+        r_path = gtk.Label()
+        r_targ = gtk.Label()
+
+        self.table = gtk.Table(rows=4, columns=2)
+
+        self.labels = {
+            "Name":(0, 1, l_name, r_name),
+            "Path":(1, 2, l_path, r_path),
+            "Type":(2, 3, l_type, r_type),
+            "Target":(3, 4, l_targ, r_targ)
+            }
+            
+        self.setup_layout(
+            self.table,
+            self.labels,
+            self.l_color
+            )
+        return
+
+    def setup_layout(self, table, labels, l_color):
+        for k, label in labels.iteritems():
+            i, j, l_label, r_label = label
+            l_label.set_size_request(48, -1)
+            l_label.set_alignment(1, 0.5)
+            l_label.set_markup(
+                "<span foreground=\"%s\"><b>%s</b></span>" % (l_color, k)
+                )
+
+            r_label.set_size_request(225, -1)
+            r_label.set_alignment(0, 0.5)
+            r_label.set_selectable(True)
+            r_label.set_line_wrap(True)
+
+            table.attach(l_label, 0, 1, i, j, xoptions=gtk.SHRINK)
+            table.attach(r_label, 1, 2, i, j, xpadding=10, ypadding=3)
+        return
+
+    def set_info(self, theme, context, name, size, path):
+        self.theme = theme
+        self.context = context
+        self.name = name
+        self.size = size
+        self.path = path
+        self.target = None
+
+        self.preview = IconPreview(path, size)
+        self.update_table(path)
+        return
+
+    def update_table(self, path, src=None, use_links=False):
+        if src and use_links:
+            p, n, t, targ = self.format_unwritten_link_info(src, path)
+        elif src and not use_links:
+            p, n, t, targ = self.format_unwritten_real_info(path)
+        elif os.path.islink(path):
+            p, n, t, targ = self.format_link_info(path)
+        else:
+            p, n, t, targ = self.format_real_info(path)
+
+        labels = self.labels
+        labels["Name"][3].set_text(n)
+        labels["Path"][3].set_text(p)
+        labels["Type"][3].set_text(t)
+        labels["Target"][3].set_text(targ)
+        return
+
+    def format_link_info(self, path):
+        p,n = os.path.split(path)
+        t = "%s " % os.path.splitext(n)[1][1:].upper()
+        t += "(Linked to %s)" % os.path.splitext( os.path.realpath(path) )[1][1:].upper()
+        return p, n, t, os.path.realpath(path)
+
+    def format_real_info(self, path):
+        p, n = os.path.split(path)
+        t = "%s" % os.path.splitext(n)[1][1:].upper()
+        return p, n, t, "n/a"
+
+    def format_unwritten_link_info(self, src, dst):
+        p,n = os.path.split(dst)
+        t = "%s " % os.path.splitext(n)[1][1:].upper()
+        t += "(Linked to %s) [Pending write]" % os.path.splitext(src)[1][1:].upper()
+        return p, n, t, src
+
+    def format_unwritten_real_info(self, dst):
+        p, n = os.path.split(dst)
+        t = "%s [Pending write]" % os.path.splitext(n)[1][1:].upper()
+        return p, n, t, "n/a"
+
+    def get_table(self):
+        return self.table
+
+    def get_preview(self):
+        return self.preview

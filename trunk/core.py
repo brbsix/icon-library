@@ -192,7 +192,7 @@ class IconLibraryController:
                 )
         return
 
-    def edit_iconset_cb(self, action, results):
+    def edit_iconset_cb(self, action, iconset_data):
         """ Callback that starts the iconset editor for selected iconset """
         import editor
 
@@ -200,7 +200,8 @@ class IconLibraryController:
         Editor.run(
             self.Theme,
             self.IconDB,
-            results
+            self.Store,
+            iconset_data
             )
         return
 
@@ -766,7 +767,7 @@ class IconDatabase:
 
                 k = self.iconset_key(Theme, ico)
 
-                if self.update_pixbuf_cache(Theme, ico, k):
+                if self.pixbuf_cache_append(Theme, ico, k):
                     scalable = -1 in Theme.get_icon_sizes(ico)
                     standard = NamingSpec.isstandard(ctx, ico)
                     cursor.execute(
@@ -788,7 +789,6 @@ class IconDatabase:
         conn.commit()
         cursor.close()
         self.length = i
-        print "DEBUG: IconDatabse created!\n"
         return
 
     def load( self ):
@@ -805,7 +805,7 @@ class IconDatabase:
         k = os.path.splitext( os.path.split(k)[1] )[0]
         return k
 
-    def update_pixbuf_cache(self, Theme, name, k):
+    def pixbuf_cache_append(self, Theme, name, k):
         try:
             if not self.pixbuf_cache.has_key(k):
                 pb16 = Theme.load_icon( name, 16, 0 )
@@ -815,6 +815,17 @@ class IconDatabase:
             return True
         except:
             return False
+
+    def pixbuf_cache_update(self, Theme, name, k):
+        try:
+            pb16 = Theme.load_icon( name, 16, 0 )
+            pb24 = Theme.load_icon( name, 24, 0 )
+            pb32 = Theme.load_icon( name, 32, 0 )
+            self.pixbuf_cache[k] = (pb16, pb24, pb32)
+            return True
+        except:
+            return False
+        return
 
     def search(self, term):
         if len(threading.enumerate()) == 1:
@@ -848,12 +859,6 @@ class IconDatabase:
             else:
                 query += " ORDER BY context, name"
         return query
-
-#    def update_pixbuf_cache( self, k, index, pixbuf ):
-#        pb_list = list( self.pixbuf_cache[k] )
-#        pb_list[index] = pixbuf
-#        self.pixbuf_cache[k] = tuple( pb_list )
-#        return
 
     def set_context_filter(self, context):
         """ Sets the context filter string """
