@@ -137,7 +137,7 @@ class IconSetEditorDialog:
 
         browser = gtk.Button()
         browser.set_image( gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU) )
-        browser.set_tooltip_text("Open folder")
+        browser.set_tooltip_text("Open containing folder")
 
         resetter = gtk.Button()
         resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
@@ -350,7 +350,7 @@ class IconSetEditorDialog:
         return
 
     def gnome_open_cb(self, button, path):
-        os.system("gnome-open %s" % os.path.split(kw[-1])[0])
+        os.system("gnome-open %s" % os.path.split(path)[0])
         return
 
     def reset_default_cb(self, event, redoer, resetter, Icon):
