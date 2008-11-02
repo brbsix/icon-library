@@ -139,6 +139,10 @@ class IconSetEditorDialog:
         browser.set_image( gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU) )
         browser.set_tooltip_text("Open containing folder")
 
+        gimper = gtk.Button()
+        gimper.set_image( gtk.image_new_from_icon_name("gimp", gtk.ICON_SIZE_MENU) )
+        gimper.set_tooltip_text("Open with the GIMP")
+
         resetter = gtk.Button()
         resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
         resetter.set_tooltip_text("Restore default icon")
@@ -163,6 +167,12 @@ class IconSetEditorDialog:
             path
             )
 
+        gimper.connect(
+            "clicked",
+            self.open_with_gimp_cb,
+            path
+            )
+
         redoer.connect(
             "clicked",
             self.redo_cb,
@@ -183,6 +193,7 @@ class IconSetEditorDialog:
         btn_hbox.set_border_width(5)
         btn_hbox.pack_start(selector)
         btn_hbox.pack_start(browser)
+        btn_hbox.pack_start(gimper)
         btn_hbox.pack_start(resetter)
         btn_hbox.pack_start(redoer)
 
@@ -350,7 +361,14 @@ class IconSetEditorDialog:
         return
 
     def gnome_open_cb(self, button, path):
-        os.system("gnome-open %s" % os.path.split(path)[0])
+        folder = os.path.split(path)[0]
+        print "Opening", folder
+        os.system("gnome-open %s &" % folder)
+        return
+
+    def open_with_gimp_cb(self, button, path):
+        print "Gimping", path
+        os.system("gimp %s &" % path)
         return
 
     def reset_default_cb(self, event, redoer, resetter, Icon):
