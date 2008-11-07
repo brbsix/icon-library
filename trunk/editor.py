@@ -229,9 +229,9 @@ class IconSetEditorDialog:
         else:
             base_split = os.path.join( os.path.expanduser('~')[1:], ".icons" ).split('/')
 
-        trg_split = preview.default_path.split('/')[1:]
+        trg_split = preview.default_path.split('/')[-3:]
 
-        dst_split = base_split + trg_split[len(base_split):]
+        dst_split = base_split + trg_split
         dst_split = self.check_dst_size(size, dst_split)
         dst_split = self.check_dst_ext(preview.cur_path, dst_split)
         dst = '/'
