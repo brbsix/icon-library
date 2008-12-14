@@ -211,49 +211,29 @@ class IconSetEditorDialog:
         theme, context = Icon.theme, Icon.context
         size, name, preview = Icon.size, Icon.name, Icon.preview
 
+        t = theme.split( '/' )
+        out = '/'
+        for part in t[-2], self.check_dst_size(size), context.lower(), name:
+            out = os.path.join( out, part )
+        out += os.path.splitext(preview.cur_path)[1]
+
         thm_uid = os.lstat( os.path.split(theme)[0] ).st_uid
-        trg_uid = os.lstat( os.path.split(preview.default_path)[0] ).st_uid
         usr_uid = pwd.getpwnam( os.getlogin() ).pw_uid
 
-        if trg_uid == usr_uid:
-            dst_split = preview.default_path.split('/')
-            dst_plsit = self.check_dst_size(size, dst_split)
-            dst_split = self.check_dst_ext(preview.cur_path, dst_split)
-            dst = '/'
-            for folder in dst_split:
-                dst = os.path.join(dst, folder)
-            return preview.cur_path, dst
-
-        elif thm_uid == usr_uid:
-            base_split = theme.split('/')[1:-1]
+        if thm_uid == usr_uid:
+            root = '/'
+            for part in t[:-2]:
+                root = os.path.join( root, part )
         else:
-            base_split = os.path.join( os.path.expanduser('~')[1:], ".icons" ).split('/')
+            root = '/' + os.path.join( os.path.expanduser('~')[1:], ".icons" )
 
-        trg_split = preview.default_path.split('/')[-3:]
+        return preview.cur_path, root + out
 
-        dst_split = base_split + trg_split
-        dst_split = self.check_dst_size(size, dst_split)
-        dst_split = self.check_dst_ext(preview.cur_path, dst_split)
-        dst = '/'
-        for folder in dst_split:
-            dst = os.path.join(dst, folder)
-        return preview.cur_path, dst
-
-    def check_dst_size(self, size, dst_split):
-        if str(size) not in dst_split[-3]:
-            if type(size) == str:
-                dst_split[-3] = size
-            else:
-                dst_split[-3] = "%sx%s" % (size, size)
-        return dst_split
-
-    def check_dst_ext(self, src, dst_split):
-        src_ext = os.path.splitext(src)[1]
-        dst_fn, dst_ext = os.path.splitext(dst_split[-1])
-
-        if src_ext != dst_ext:
-            dst_split[-1] = dst_fn + src_ext
-        return dst_split
+    def check_dst_size(self, size):
+        if type(size) == int:
+            return "%sx%s" % (size, size)
+        else:
+            return size
 
     def backup(self, src):
         backup_dir = os.path.join(os.getcwd(), 'backup')
@@ -273,10 +253,7 @@ class IconSetEditorDialog:
         src, dst = self.make_destination(Icon)
 
         print '\nDEBUG: REPLACE ICON!'
-        print 'DEBUG: Source  >', Icon.preview.cur_path
-        print 'DEBUG: Size    >', Icon.size
-        print 'DEBUG: Target  >', os.path.split(Icon.preview.default_path)
-        print 'DEBUG: Theme   >', os.path.split(Icon.theme)[0]
+        print 'DEBUG: Source  >', src
         print "DEBUG: Outpath >", dst
 
         try:
