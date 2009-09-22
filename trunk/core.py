@@ -272,8 +272,8 @@ class IconLibraryController:
         self.search_and_display(self.Gui.text_entry)
         return
 
-    def search_entry_cb( self, text_entry):
-        self.search_and_display(text_entry)
+    def search_entry_cb( self, search_entry, text):
+        self.search_and_display(text)
         return
 
     def search_button_cb( self, *kw ):
@@ -413,6 +413,7 @@ class IconLibraryGui:
 
     def setup_top_toolbar(self, Controller, Theme, vbox):
         import pango
+        import searchentry
 
         self.avatar_button = gtk.Button()
         self.avatar_button.set_relief(gtk.RELIEF_NONE)
@@ -440,19 +441,20 @@ class IconLibraryGui:
             "Select whether to display icons that have been\ninherited from other themes"
             )
 
-        self.text_entry = gtk.Entry(60)
+        self.text_entry = searchentry.SearchEntry()
+#        self.text_entry = gtk.Entry(60)
 
-        srch_btn = gtk.Button("Find")
-        srch_btn.set_size_request(76, -1)
-        srch_btn.set_image(
-            gtk.image_new_from_stock( gtk.STOCK_FIND, gtk.ICON_SIZE_MENU )
-            )
+#        srch_btn = gtk.Button("Find")
+#        srch_btn.set_size_request(76, -1)
+#        srch_btn.set_image(
+#            gtk.image_new_from_stock( gtk.STOCK_FIND, gtk.ICON_SIZE_MENU )
+#            )
 
-        clr_btn = gtk.Button()
-        clr_btn.set_tooltip_text("Clear")
-        clr_btn.set_image(
-            gtk.image_new_from_stock( gtk.STOCK_CLEAR, gtk.ICON_SIZE_MENU )
-            )
+#        clr_btn = gtk.Button()
+#        clr_btn.set_tooltip_text("Clear")
+#        clr_btn.set_image(
+#            gtk.image_new_from_stock( gtk.STOCK_CLEAR, gtk.ICON_SIZE_MENU )
+#            )
 
         rbtn_align = gtk.Alignment(0.5, 0.5)
         rbtn_vbox = gtk.VBox()
@@ -460,8 +462,8 @@ class IconLibraryGui:
 
         rbtn_align.add(rbtn_vbox)
         rbtn_vbox.pack_start(rbtn_hbox, False)
-        rbtn_hbox.pack_start(clr_btn, False)
-        rbtn_hbox.pack_end(srch_btn, False)
+#        rbtn_hbox.pack_start(clr_btn, False)
+#        rbtn_hbox.pack_end(srch_btn, False)
 
         tbar_hbox = gtk.HBox()
         check_vbox = gtk.VBox(spacing=3)
@@ -494,19 +496,24 @@ class IconLibraryGui:
             )
 
         self.text_entry.connect(
-            "activate",
+            "terms-changed",
             Controller.search_entry_cb
             )
 
-        srch_btn.connect(
-            "clicked",
-            Controller.search_button_cb
-            )
+#        self.text_entry.connect(
+#            "activate",
+#            Controller.search_entry_cb
+#            )
 
-        clr_btn.connect(
-            "clicked",
-            Controller.clear_button_cb
-            )
+#        srch_btn.connect(
+#            "clicked",
+#            Controller.search_button_cb
+#            )
+
+#        clr_btn.connect(
+#            "clicked",
+#            Controller.clear_button_cb
+#            )
         return
 
     def setup_scrolled_panels(self, vbox):
@@ -799,7 +806,7 @@ class IconDatabase:
                 k, inherited = self.iconset_key(Theme, ico)
                 tn = Theme.info[0]
 
-                if self.pixbuf_cache_append(Theme, ico, k):
+                if self.pixbuf_cache_append(Theme, ico, k, ctx):
                     scalable = -1 in Theme.get_icon_sizes(ico)
                     standard = NamingSpec.isstandard(ctx, ico)
                     cursor.execute(
@@ -832,21 +839,22 @@ class IconDatabase:
         return
 
     def iconset_key(self, Theme, name):
-        p = Theme.lookup_icon(name, 22, 0).get_filename()
+        p = Theme.lookup_icon(name, 24, 0).get_filename()
         p = os.path.realpath( p )
         k = os.path.splitext( os.path.split(p)[1] )[0]
         return k, p.split('/')[4]   # return key and inheritance
 
-    def pixbuf_cache_append(self, Theme, name, k):
+    def pixbuf_cache_append(self, Theme, name, k, ctx):
         try:
             if not self.pixbuf_cache.has_key(k):
-                pb16 = Theme.load_icon( name, 16, 0 )
-                pb24 = Theme.load_icon( name, 24, 0 )
-                pb32 = Theme.load_icon( name, 32, 0 )
-                self.pixbuf_cache[k] = (pb16, pb24, pb32)
-            return True
+                pbs = []
+                for size in (16, 24, 32):
+                    pbs.append(Theme.load_icon(name, size, 0))
+
+                self.pixbuf_cache[k] = pbs
         except:
             return False
+        return True
 
     def pixbuf_cache_update(self, Theme, name, k):
         try:
