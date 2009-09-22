@@ -115,7 +115,7 @@ class IconSetEditorDialog:
             if os.path.splitext(path)[1] == '.svg': return None
             tab_label = "%sx%s" % (size, size)
         else:
-            path = Theme.lookup_icon(name, 64, 0).get_filename()
+            path = Theme.lookup_icon(name, 64, gtk.ICON_LOOKUP_FORCE_SVG).get_filename()
             tab_label = size
 
         Icon = IconInfo(l_color)
@@ -138,12 +138,12 @@ class IconSetEditorDialog:
 
         browser = gtk.Button()
         browser.set_label('Locate on disk')
-        browser.set_image( gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU) )
+        browser.set_image(gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU))
         browser.set_tooltip_text("Open containing folder")
 
         gimper = gtk.Button()
         gimper.set_label('Open with the GIMP')
-        gimper.set_image( gtk.image_new_from_icon_name("gimp", gtk.ICON_SIZE_MENU) )
+        gimper.set_image(gtk.image_new_from_icon_name("gimp", gtk.ICON_SIZE_MENU))
 
 #        resetter = gtk.Button()
 #        resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )

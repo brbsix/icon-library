@@ -140,16 +140,20 @@ class IconPreview(gtk.DrawingArea):
         self.default_path = path
         self.cur_path = None
         self.pre_path = None
-        self.pixbuf = gtk.gdk.pixbuf_new_from_file(path)
+
+        if size == 'scalable':
+            self.pixbuf = gtk.gdk.pixbuf_new_from_file_at_size(path, 64, 64)
+        else:
+            self.pixbuf = gtk.gdk.pixbuf_new_from_file(path)
 
         x, y = self.pixbuf.get_width(), self.pixbuf.get_height()
-        if max(x,y) > 64:
+        if max(x,y) >= 72:
             self.set_size_request(
                 x + 8,
                 y + 8
                 )
         else:
-            self.set_size_request(64, 64)
+            self.set_size_request(72, 72)
 
         self.set_events(gtk.gdk.BUTTON_PRESS_MASK)
         self.connect("expose_event", self.expose)
@@ -157,21 +161,23 @@ class IconPreview(gtk.DrawingArea):
 
     def expose(self, widget, event):
         cr = widget.window.cairo_create()
-        cr.rectangle(event.area.x, event.area.y, event.area.width, event.area.height)
+        cr.rectangle(event.area)
         cr.clip()
         alloc = self.get_allocation()
-        self.draw(cr, alloc)
-        pb = self.pixbuf
-        dest_x = ( alloc.width - pb.get_width() ) / 2
-        dest_y = ( alloc.height - pb.get_height() ) / 2
-        widget.window.draw_pixbuf(None, pb, 0, 0, dest_x, dest_y, -1, -1)
+        self.draw(cr, alloc, self.pixbuf)
+        del cr
         return False
 
-    def draw(self, cr, alloc):
+    def draw(self, cr, alloc, pb):
         r = 6
         self.draft_rounded_rectangle(cr, alloc.width, alloc.height, (r,r,r,r), 0, 0)
         cr.set_source_rgba(1, 1, 1, 0.85)
         cr.fill()
+
+        dst_x = ( alloc.width - pb.get_width() ) / 2
+        dst_y = ( alloc.height - pb.get_height() ) / 2
+        cr.set_source_pixbuf(pb, dst_x, dst_y)
+        cr.paint()
         return
 
     def draft_rounded_rectangle(self, cr, width, height, radii, xpad=0, ypad=0):
