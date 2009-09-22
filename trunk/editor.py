@@ -67,19 +67,19 @@ class IconSetEditorDialog:
                 )
             if Icon: iconset += Icon,
 
-        self.use_links = gtk.CheckButton(
-            "Replace icons with symlinks (Recommended)",
-            False
-            )
+#        self.use_links = gtk.CheckButton(
+#            "Replace icons with symlinks (Recommended)",
+#            False
+#            )
 
-        self.use_links.set_active(True)
-        self.dialog.vbox.pack_start(self.use_links, False, False, padding=3)
+#        self.use_links.set_active(True)
+#        self.dialog.vbox.pack_start(self.use_links, False, False, padding=3)
 
-        self.use_links.connect(
-            "toggled",
-            self.use_links_toggled_cb,
-            Icon
-            )
+#        self.use_links.connect(
+#            "toggled",
+#            self.use_links_toggled_cb,
+#            Icon
+#            )
 
         self.dialog.vbox.show_all()
         response = self.dialog.run()
