@@ -128,7 +128,7 @@ class IconLibraryController:
     def search_and_display(self, entry):
         """ Function performs IconDB search then displays results in treeview """
         IconDB = self.IconDB
-        term, results = IconDB.search(entry.get_text())
+        term, results = IconDB.search(entry)
 
         self.Gui.set_feedback(
             IconDB,
