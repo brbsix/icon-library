@@ -315,7 +315,7 @@ class IconLibraryGui:
         for theme, name, p in themes:
             name = name or "Unnamed"
             if theme == Theme.default:
-                name += " (default)"
+                name += " (in use)"
                 active = i
             theme_sel.append_text(name)
             i += 1
