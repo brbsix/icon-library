@@ -2,7 +2,7 @@
 # Filename: editor.py
 
 __licence__ = "LGPLv3"
-__copyright__ = "Matthew McGowan, 2008"
+__copyright__ = "Matthew McGowan, 2009"
 __author__ = "Matthew McGowan <matthew.joseph.mcgowan@gmail.com>"
 
 
