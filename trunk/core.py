@@ -128,7 +128,7 @@ class IconLibraryController:
     def search_and_display(self, entry):
         """ Function performs IconDB search then displays results in treeview """
         IconDB = self.IconDB
-        term, results = IconDB.search(entry)
+        term, results = IconDB.search(entry.get_text())
 
         self.Gui.set_feedback(
             IconDB,
@@ -172,6 +172,11 @@ class IconLibraryController:
     def standard_filter_cb(self, checkbutton):
         """ Standard filter checkbutton toggled callback.  Sets standard filter. """
         self.IconDB.set_standard_filter( checkbutton.get_active() )
+        self.search_and_display(self.Gui.text_entry)
+        return
+
+    def inherited_filter_cb(self, checkbutton):
+        self.IconDB.set_inherited_filter( checkbutton.get_active() )
         self.search_and_display(self.Gui.text_entry)
         return
 
@@ -292,7 +297,7 @@ class IconLibraryGui:
     def __init__(self):
         # setup the root window
         self.root = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
-        self.root.set_default_size(780, 640)
+        self.root.set_default_size(850, 640)
         self.root.set_title( "Icon Library")
         self.vbox = gtk.VBox()
         self.root.add(self.vbox)
@@ -415,11 +420,19 @@ class IconLibraryGui:
         self.header_label.set_markup( self.make_header(Theme) )
 
         self.standard_check = gtk.CheckButton(
-            label="Standard icons only",
+            label="Hide non-standard icons",
             use_underline=False
             )
         self.standard_check.set_tooltip_text(
             "Only show icons that conform to the\nfreedesktop.org Icon Naming Specification"
+            )
+
+        self.inherited_check = gtk.CheckButton(
+            label="Hide inherited icons",
+            use_underline=False
+            )
+        self.inherited_check.set_tooltip_text(
+            "Select whether to display icons that have been\ninherited from other themes"
             )
 
         self.text_entry = gtk.Entry(60)
@@ -446,13 +459,17 @@ class IconLibraryGui:
         rbtn_hbox.pack_end(srch_btn, False)
 
         tbar_hbox = gtk.HBox()
+        check_vbox = gtk.VBox(spacing=3)
+
+        check_vbox.pack_start(self.standard_check, False)
+        check_vbox.pack_start(self.inherited_check, False)
 
         tbar_hbox.pack_start(self.avatar_button, False, padding=5)
         tbar_hbox.pack_start(self.header_label, False)
 
         tbar_hbox.pack_end(rbtn_align, False)
         tbar_hbox.pack_end(self.text_entry, False)
-        tbar_hbox.pack_end(self.standard_check, False, padding=5)
+        tbar_hbox.pack_end(check_vbox, False, padding=5)
 
         vbox.pack_start(tbar_hbox, False, padding=5)
 
@@ -464,6 +481,11 @@ class IconLibraryGui:
         self.standard_check.connect(
             "toggled",
             Controller.standard_filter_cb
+            )
+
+        self.inherited_check.connect(
+            "toggled",
+            Controller.inherited_filter_cb
             )
 
         self.text_entry.connect(
@@ -726,6 +748,7 @@ class IconDatabase:
         self.model = None
         self.results = None
         self.standard_only = False
+        self.inherited_only = False
         self.ctx_filter = "<b>All Contexts</b>"
         return
 
@@ -744,7 +767,9 @@ class IconDatabase:
                     name TEXT, \
                     context TEXT, \
                     standard BOOLEAN, \
-                    scalable BOOLEAN \
+                    scalable BOOLEAN, \
+                    inherited BOOLEAN, \
+                    inherited_name TEXT \
                     )"
                 )
         else:
@@ -765,14 +790,15 @@ class IconDatabase:
         for ctx in contexts:
             for ico in Theme.list_icons(ctx):
 
-                k = self.iconset_key(Theme, ico)
+                k, inherited = self.iconset_key(Theme, ico)
+                tn = Theme.info[0]
 
                 if self.pixbuf_cache_append(Theme, ico, k):
                     scalable = -1 in Theme.get_icon_sizes(ico)
                     standard = NamingSpec.isstandard(ctx, ico)
                     cursor.execute(
-                        "INSERT INTO theme VALUES (?,?,?,?,?)",
-                        (k, ico, ctx, standard, scalable)
+                        "INSERT INTO theme VALUES (?,?,?,?,?,?,?)",
+                        (k, ico, ctx, standard, scalable, inherited == tn, inherited)
                         )
                     i += 1
                 else:
@@ -800,10 +826,10 @@ class IconDatabase:
         return
 
     def iconset_key(self, Theme, name):
-        k = Theme.lookup_icon(name, 22, 0).get_filename()
-        k = os.path.realpath( k )
-        k = os.path.splitext( os.path.split(k)[1] )[0]
-        return k
+        p = Theme.lookup_icon(name, 22, 0).get_filename()
+        p = os.path.realpath( p )
+        k = os.path.splitext( os.path.split(p)[1] )[0]
+        return k, p.split('/')[4]   # return key and inheritance
 
     def pixbuf_cache_append(self, Theme, name, k):
         try:
@@ -843,6 +869,8 @@ class IconDatabase:
             query = "SELECT * FROM theme WHERE name LIKE %s" % qterm
             if self.standard_only:
                 query += " AND standard"
+            if self.inherited_only:
+                query += " AND inherited"
             if self.ctx_filter != "<b>All Contexts</b>":
                 query += " AND context=\"%s\" ORDER BY name" % self.ctx_filter
             else:
@@ -851,8 +879,13 @@ class IconDatabase:
             query = "SELECT * FROM theme"
             if self.standard_only:
                 query += " WHERE standard"
-            if self.ctx_filter != "<b>All Contexts</b>":
+            if self.inherited_only:
                 if self.standard_only:
+                    query += " AND inherited"
+                else:
+                    query += " WHERE inherited"
+            if self.ctx_filter != "<b>All Contexts</b>":
+                if self.standard_only or self.inherited_only:
                     query += " AND context=\"%s\" ORDER BY name" % self.ctx_filter
                 else:
                     query += " WHERE context=\"%s\" ORDER BY name" % self.ctx_filter
@@ -868,6 +901,10 @@ class IconDatabase:
     def set_standard_filter(self, standard_only):
         """ Sets whether to filter based on standard names only """
         self.standard_only = standard_only
+        return
+
+    def set_inherited_filter(self, inherited_only):
+        self.inherited_only = inherited_only
         return
 
     def get_context_filter(self):
@@ -918,25 +955,29 @@ class InfoModel:
         return
 
     def __model2_appender(self, results, pixbuf_cache):
-        for key, ico, context, standard, scalable in results:
-            pb0 = pixbuf_cache[key][0]
-            pb1 = pixbuf_cache[key][1]
-            pb2 = pixbuf_cache[key][2]
+        for key, ico, context, standard, scalable, inherited, inherited_name in results:
+            if key in pixbuf_cache:
+                pb0 = pixbuf_cache[key][0]
+                pb1 = pixbuf_cache[key][1]
+                pb2 = pixbuf_cache[key][2]
 
-            notes = None
-            if key != ico:
-                notes = "Symlink"
-            if not scalable:
-                if not notes:
-                    notes = "Fixed Only"
-                else:
-                    notes += ", Fixed Only"
-            if standard:
-                ico = "<b>%s</b>" % ico
+                notes = None
+                if key != ico:
+                    notes = "Symlink"
+                if not scalable:
+                    if not notes:
+                        notes = "Fixed Only"
+                    else:
+                        notes += ", Fixed Only"
+                if not inherited:
+                    if not notes: notes = ""
+                    notes += "\nInherited from %s" % inherited_name
+                if standard:
+                    ico = "<b>%s</b>" % ico
 
-            gtk.gdk.threads_enter()
-            self.model2.append( (ico, context, pb0, pb1, pb2, notes) )
-            gtk.gdk.threads_leave()
+                gtk.gdk.threads_enter()
+                self.model2.append( (ico, context, pb0, pb1, pb2, notes) )
+                gtk.gdk.threads_leave()
         return
 
 

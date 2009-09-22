@@ -132,10 +132,10 @@ class IconSetEditorDialog:
         icon_hbox = gtk.HBox()
         icon_hbox.pack_start(preview, padding=5)
 
-        selector = gtk.Button("Select replacement icon")
-        selector.set_image( gtk.image_new_from_stock(gtk.STOCK_OPEN, gtk.ICON_SIZE_MENU) )
+#        selector = gtk.Button("Select replacement icon")
+#        selector.set_image( gtk.image_new_from_stock(gtk.STOCK_OPEN, gtk.ICON_SIZE_MENU) )
 
-        browser = gtk.Button()
+        browser = gtk.Button('Locate on disk')
         browser.set_image( gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU) )
         browser.set_tooltip_text("Open containing folder")
 
@@ -143,23 +143,23 @@ class IconSetEditorDialog:
         gimper.set_image( gtk.image_new_from_icon_name("gimp", gtk.ICON_SIZE_MENU) )
         gimper.set_tooltip_text("Open with the GIMP")
 
-        resetter = gtk.Button()
-        resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
-        resetter.set_tooltip_text("Restore default icon")
-        resetter.set_sensitive(False)
+#        resetter = gtk.Button()
+#        resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
+#        resetter.set_tooltip_text("Restore default icon")
+#        resetter.set_sensitive(False)
 
-        redoer = gtk.Button()
-        redoer.set_image( gtk.image_new_from_stock(gtk.STOCK_REDO, gtk.ICON_SIZE_MENU) )
-        redoer.set_tooltip_text("Redo last change")
-        redoer.set_sensitive(False)
-        redoer.set_size_request(24, -1)
+#        redoer = gtk.Button()
+#        redoer.set_image( gtk.image_new_from_stock(gtk.STOCK_REDO, gtk.ICON_SIZE_MENU) )
+#        redoer.set_tooltip_text("Redo last change")
+#        redoer.set_sensitive(False)
+#        redoer.set_size_request(24, -1)
 
-        selector.connect(
-            "clicked",
-            self.icon_chooser_dialog_cb,
-            resetter,
-            Icon
-            )
+#        selector.connect(
+#            "clicked",
+#            self.icon_chooser_dialog_cb,
+#            resetter,
+#            Icon
+#            )
 
         browser.connect(
             "clicked",
@@ -173,29 +173,29 @@ class IconSetEditorDialog:
             path
             )
 
-        redoer.connect(
-            "clicked",
-            self.redo_cb,
-            redoer,
-            resetter,
-            Icon
-            )
+#        redoer.connect(
+#            "clicked",
+#            self.redo_cb,
+#            redoer,
+#            resetter,
+#            Icon
+#            )
 
-        resetter.connect(
-            "clicked",
-            self.reset_default_cb,
-            redoer,
-            resetter,
-            Icon
-            )
+#        resetter.connect(
+#            "clicked",
+#            self.reset_default_cb,
+#            redoer,
+#            resetter,
+#            Icon
+#            )
 
         btn_hbox = gtk.HBox()
         btn_hbox.set_border_width(5)
-        btn_hbox.pack_start(selector)
+#        btn_hbox.pack_start(selector)
         btn_hbox.pack_start(browser)
         btn_hbox.pack_start(gimper)
-        btn_hbox.pack_start(resetter)
-        btn_hbox.pack_start(redoer)
+#        btn_hbox.pack_start(resetter)
+#        btn_hbox.pack_start(redoer)
 
         page = gtk.VBox()
 
