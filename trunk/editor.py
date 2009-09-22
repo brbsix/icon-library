@@ -109,7 +109,7 @@ class IconSetEditorDialog:
         self.dialog.destroy()
         return
 
-    def make_and_append_page(self, Theme, context, name, size, path, l_color):
+    def make_and_append_page(self, Theme, context, name, size, l_color):
         if type(size) == int:
             path = Theme.lookup_icon(name, size, 0).get_filename()
             if os.path.splitext(path)[1] == '.svg': return None
