@@ -178,6 +178,11 @@ class IconLibraryController:
     def inherited_filter_cb(self, checkbutton):
         self.IconDB.set_inherited_filter( checkbutton.get_active() )
         self.search_and_display(self.Gui.text_entry)
+        return False
+
+    def row_activated_2click_cb(self, treeview, path, column):
+        iconset_data = self.IconDB.results[path[0]]
+        self.edit_iconset_cb(None, iconset_data)
         return
 
     def row_activated_cb(self, treeview, event):
@@ -526,7 +531,8 @@ class IconLibraryGui:
         scrollers[1].add(view2)
 
         view1.connect("cursor-changed", Controller.context_filter_cb) 
-        view2.connect("button-release-event", Controller.row_activated_cb)
+        view2.connect_after("button-release-event", Controller.row_activated_cb)
+        view2.connect("row-activated", Controller.row_activated_2click_cb)
         return
 
     def setup_bottom_toolbar(self, vbox):

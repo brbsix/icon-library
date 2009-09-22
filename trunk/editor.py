@@ -136,13 +136,14 @@ class IconSetEditorDialog:
 #        selector = gtk.Button("Select replacement icon")
 #        selector.set_image( gtk.image_new_from_stock(gtk.STOCK_OPEN, gtk.ICON_SIZE_MENU) )
 
-        browser = gtk.Button('Locate on disk')
+        browser = gtk.Button()
+        browser.set_label('Locate on disk')
         browser.set_image( gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU) )
         browser.set_tooltip_text("Open containing folder")
 
         gimper = gtk.Button()
+        gimper.set_label('Open with the GIMP')
         gimper.set_image( gtk.image_new_from_icon_name("gimp", gtk.ICON_SIZE_MENU) )
-        gimper.set_tooltip_text("Open with the GIMP")
 
 #        resetter = gtk.Button()
 #        resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
