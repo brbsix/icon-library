@@ -66,17 +66,6 @@ class ColorSwatch(gtk.DrawingArea):
 
         cr.stroke()
         cr.restore()
-
-        if self.default:
-            cr.select_font_face(
-                "Sans",
-                cairo.FONT_SLANT_NORMAL,
-                cairo.FONT_WEIGHT_BOLD
-                )
-            cr.set_font_size(9.0)
-            cr.set_source_rgb(*self.SELECTED_COLOR)
-            cr.move_to(6.0, 16.0)
-            cr.show_text("d")
         return
 
     def draft_rounded_rectangle(self, cr, width, height, r, xpad=0, ypad=0):

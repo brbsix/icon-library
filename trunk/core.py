@@ -430,7 +430,7 @@ class IconLibraryGui:
             use_underline=False
             )
         self.standard_check.set_tooltip_text(
-            "Only show icons that conform to the\nfreedesktop.org Icon Naming Specification"
+            "Choose to display icons that conform to the\nfreedesktop.org Icon Naming Specification"
             )
 
         self.inherited_check = gtk.CheckButton(
@@ -438,23 +438,10 @@ class IconLibraryGui:
             use_underline=False
             )
         self.inherited_check.set_tooltip_text(
-            "Select whether to display icons that have been\ninherited from other themes"
+            "Choose to display icons that have been\ninherited from other themes"
             )
 
         self.text_entry = searchentry.SearchEntry()
-#        self.text_entry = gtk.Entry(60)
-
-#        srch_btn = gtk.Button("Find")
-#        srch_btn.set_size_request(76, -1)
-#        srch_btn.set_image(
-#            gtk.image_new_from_stock( gtk.STOCK_FIND, gtk.ICON_SIZE_MENU )
-#            )
-
-#        clr_btn = gtk.Button()
-#        clr_btn.set_tooltip_text("Clear")
-#        clr_btn.set_image(
-#            gtk.image_new_from_stock( gtk.STOCK_CLEAR, gtk.ICON_SIZE_MENU )
-#            )
 
         rbtn_align = gtk.Alignment(0.5, 0.5)
         rbtn_vbox = gtk.VBox()
@@ -462,10 +449,8 @@ class IconLibraryGui:
 
         rbtn_align.add(rbtn_vbox)
         rbtn_vbox.pack_start(rbtn_hbox, False)
-#        rbtn_hbox.pack_start(clr_btn, False)
-#        rbtn_hbox.pack_end(srch_btn, False)
 
-        tbar_hbox = gtk.HBox()
+        tbar_hbox = gtk.HBox(spacing=3)
         check_vbox = gtk.VBox(spacing=3)
 
         check_vbox.pack_start(self.standard_check, False)
@@ -499,31 +484,20 @@ class IconLibraryGui:
             "terms-changed",
             Controller.search_entry_cb
             )
-
-#        self.text_entry.connect(
-#            "activate",
-#            Controller.search_entry_cb
-#            )
-
-#        srch_btn.connect(
-#            "clicked",
-#            Controller.search_button_cb
-#            )
-
-#        clr_btn.connect(
-#            "clicked",
-#            Controller.clear_button_cb
-#            )
         return
 
     def setup_scrolled_panels(self, vbox):
         hpaned = gtk.HPaned()
         hpaned.set_position(135)
+        hpaned.set_border_width(3)
 
         scroller1 = gtk.ScrolledWindow(hadjustment=None, vadjustment=None)
-        scroller1.set_policy(gtk.POLICY_ALWAYS, gtk.POLICY_AUTOMATIC)
+        scroller1.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        scroller1.set_shadow_type(gtk.SHADOW_IN)
 
         scroller2 = gtk.ScrolledWindow(hadjustment=None, vadjustment=None)
+        scroller2.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        scroller2.set_shadow_type(gtk.SHADOW_IN)
 
         hpaned.pack1(scroller1)
         hpaned.pack2(scroller2)
@@ -575,21 +549,21 @@ class IconLibraryGui:
         style = self.root.get_style()
         cb = Controller.change_bg_color_cb
 
-        color_sel0 = custom_widgets.ColorSwatch(
+        sel0 = custom_widgets.ColorSwatch(
             cb,
             style,
             tip="Default",
             default=True
             )
 
-        color_sel1 = custom_widgets.ColorSwatch(
+        sel1 = custom_widgets.ColorSwatch(
             cb,
             style,
             bg="#FFFFFF",
             tip="White"
             )
 
-        color_sel2 = custom_widgets.ColorSwatch(
+        sel2 = custom_widgets.ColorSwatch(
             cb,
             style,
             bg="#9C9C9C",
@@ -597,7 +571,7 @@ class IconLibraryGui:
             tip="Grey"
             )
 
-        color_sel3 = custom_widgets.ColorSwatch(
+        sel3 = custom_widgets.ColorSwatch(
             cb,
             style,
             bg="#525252",
@@ -606,12 +580,13 @@ class IconLibraryGui:
             tip="Dark grey"
             )
 
-        Controller.cswatch_focus = color_sel0.give_focus()
+        Controller.cswatch_focus = sel0.give_focus()
 
-        btm_hbox.pack_end(color_sel3, False)
-        btm_hbox.pack_end(color_sel2, False)
-        btm_hbox.pack_end(color_sel1, False)
-        btm_hbox.pack_end(color_sel0, False)
+        for sel in sel3, sel2, sel1, sel0:
+            a = gtk.Alignment(0.5,0.5)
+            a.add(sel)
+            btm_hbox.pack_end(a, False)
+
         btm_hbox.show_all()
         return
 
