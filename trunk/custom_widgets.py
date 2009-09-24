@@ -12,10 +12,13 @@ pygtk.require("2.0")
 import gtk
 import cairo
 if cairo.version_info < (1, 4, 0):
-	print 'Cairo must be version 1.4.0 or more recent.'
-	print 'For more info on Cairo see http://cairographics.org/\n'
-	raise SystemExit
-from math import pi
+    print 'Cairo must be version 1.4.0 or more recent.'
+    print 'For more info on Cairo see http://cairographics.org/\n'
+    raise SystemExit
+
+# pi constants
+M_PI = 3.1415926535897931
+PI_OVER_180 = 0.017453292519943295
 
 
 class ColorSwatch(gtk.DrawingArea):
@@ -48,16 +51,22 @@ class ColorSwatch(gtk.DrawingArea):
         return False
 
     def draw(self, cr):
+        cr.save()
+        cr.translate(0.5,0.5)
+        cr.set_line_width(1)
         rect = self.get_allocation()
-        self.draft_rounded_rectangle(cr, rect.width, rect.height, (4,4,4,4), 2, 2+(rect.height-18)/2)
+        self.draft_rounded_rectangle(cr, rect.width, rect.height, 2, 2, 2+(rect.height-18)/2)
         cr.set_source_rgb(*self.swatch_color_f)
         cr.fill_preserve()
+
         if self.isactive:
             cr.set_source_rgb( *self.inc_saturation(self.SELECTED_COLOR) )
         else:
-            cr.set_line_width(0.5)
             cr.set_source_rgb( *self.BORDER_COLOR )
+
         cr.stroke()
+        cr.restore()
+
         if self.default:
             cr.select_font_face(
                 "Sans",
@@ -65,18 +74,18 @@ class ColorSwatch(gtk.DrawingArea):
                 cairo.FONT_WEIGHT_BOLD
                 )
             cr.set_font_size(9.0)
-            cr.set_source_rgb( *self.SELECTED_COLOR )
-            cr.move_to(5.0, 16.0)
+            cr.set_source_rgb(*self.SELECTED_COLOR)
+            cr.move_to(6.0, 16.0)
             cr.show_text("d")
         return
 
-    def draft_rounded_rectangle(self, cr, width, height, radii, xpad=0, ypad=0):
-        nw, ne, se, sw = radii
+    def draft_rounded_rectangle(self, cr, width, height, r, xpad=0, ypad=0):
+        global M_PI, PI_OVER_180
         cr.new_sub_path()
-        cr.arc(nw+xpad, nw+ypad, nw, 180 * (pi / 180), 270 * (pi / 180))
-        cr.arc(width-ne-xpad, ne+ypad, ne, 270 * (pi / 180), 0 * (pi / 180))
-        cr.arc(width-se-xpad, height-se-ypad, se, 0 * (pi / 180), 90 * (pi / 180))
-        cr.arc(sw+xpad, height-sw-ypad, sw, 90 * (pi / 180), 180 * (pi / 180))
+        cr.arc(r+xpad, r+ypad, r, M_PI, 270*PI_OVER_180)
+        cr.arc(width-r-xpad, r+ypad, r, 270*PI_OVER_180, 0)
+        cr.arc(width-r-xpad, height-r-ypad, r, 0, 90*PI_OVER_180)
+        cr.arc(r+xpad, height-r-ypad, r, 90*PI_OVER_180, M_PI)
         cr.close_path()
         return
 
@@ -137,10 +146,6 @@ class IconPreview(gtk.DrawingArea):
         gtk.DrawingArea.__init__(self)
         self.path = path
 
-        self.default_path = path
-        self.cur_path = None
-        self.pre_path = None
-
         if size == 'scalable':
             self.pixbuf = gtk.gdk.pixbuf_new_from_file_at_size(path, 64, 64)
         else:
@@ -169,8 +174,7 @@ class IconPreview(gtk.DrawingArea):
         return False
 
     def draw(self, cr, alloc, pb):
-        r = 6
-        self.draft_rounded_rectangle(cr, alloc.width, alloc.height, (r,r,r,r), 0, 0)
+        self.draft_rounded_rectangle(cr, 0, 0, alloc.width, alloc.height, 4)
         cr.set_source_rgba(1, 1, 1, 0.85)
         cr.fill()
 
@@ -180,38 +184,12 @@ class IconPreview(gtk.DrawingArea):
         cr.paint()
         return
 
-    def draft_rounded_rectangle(self, cr, width, height, radii, xpad=0, ypad=0):
-        nw, ne, se, sw = radii
-        if nw:
-            cr.new_sub_path()
-            cr.arc(nw+xpad, nw+ypad, nw, 180 * (pi / 180), 270 * (pi / 180))
-        else:
-            cr.move_to(0, 0)
-        if ne:
-            cr.arc(width-ne-xpad, ne+ypad, ne, 270 * (pi / 180), 0 * (pi / 180))
-        else:
-            cr.rel_line_to(width-nw, 0)
-        if se:
-            cr.arc(width-se-xpad, height-se-ypad, se, 0 * (pi / 180), 90 * (pi / 180))
-        else:
-            cr.rel_line_to(0, height-ne)
-        if sw:
-            cr.arc(sw+xpad, height-sw-ypad, sw, 90 * (pi / 180), 180 * (pi / 180))
-        else:
-            cr.rel_line_to(-(width-se), 0)
+    def draft_rounded_rectangle(self, cr, x, y, w, h, r):
+        global M_PI, PI_OVER_180
+        cr.new_sub_path()
+        cr.arc(r+x, r+y, r, M_PI, 270*PI_OVER_180)
+        cr.arc(w-r, r+y, r, 270*PI_OVER_180, 0)
+        cr.arc(w-r, h-r, r, 0, 90*PI_OVER_180)
+        cr.arc(r+x, h-r, r, 90*PI_OVER_180, M_PI)
         cr.close_path()
         return
-
-    def set_icon(self, path):
-        self.pre_path = self.cur_path
-        self.cur_path = path
-        self.pixbuf = gtk.gdk.pixbuf_new_from_file(path)
-        self.queue_draw()
-        return False
-
-    def reset_default_icon(self):
-        self.pre_path = self.cur_path
-        self.cur_path = self.default_path
-        self.pixbuf = gtk.gdk.pixbuf_new_from_file(self.default_path)
-        self.queue_draw()
-        return False

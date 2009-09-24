@@ -67,20 +67,6 @@ class IconSetEditorDialog:
                 )
             if Icon: iconset += Icon,
 
-#        self.use_links = gtk.CheckButton(
-#            "Replace icons with symlinks (Recommended)",
-#            False
-#            )
-
-#        self.use_links.set_active(True)
-#        self.dialog.vbox.pack_start(self.use_links, False, False, padding=3)
-
-#        self.use_links.connect(
-#            "toggled",
-#            self.use_links_toggled_cb,
-#            Icon
-#            )
-
         self.dialog.vbox.show_all()
         response = self.dialog.run()
 
@@ -133,9 +119,6 @@ class IconSetEditorDialog:
         icon_hbox = gtk.HBox()
         icon_hbox.pack_start(preview, padding=5)
 
-#        selector = gtk.Button("Select replacement icon")
-#        selector.set_image( gtk.image_new_from_stock(gtk.STOCK_OPEN, gtk.ICON_SIZE_MENU) )
-
         browser = gtk.Button()
         browser.set_label('Locate on disk')
         browser.set_image(gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU))
@@ -144,24 +127,6 @@ class IconSetEditorDialog:
         gimper = gtk.Button()
         gimper.set_label('Open with the GIMP')
         gimper.set_image(gtk.image_new_from_icon_name("gimp", gtk.ICON_SIZE_MENU))
-
-#        resetter = gtk.Button()
-#        resetter.set_image( gtk.image_new_from_stock(gtk.STOCK_UNDO, gtk.ICON_SIZE_MENU) )
-#        resetter.set_tooltip_text("Restore default icon")
-#        resetter.set_sensitive(False)
-
-#        redoer = gtk.Button()
-#        redoer.set_image( gtk.image_new_from_stock(gtk.STOCK_REDO, gtk.ICON_SIZE_MENU) )
-#        redoer.set_tooltip_text("Redo last change")
-#        redoer.set_sensitive(False)
-#        redoer.set_size_request(24, -1)
-
-#        selector.connect(
-#            "clicked",
-#            self.icon_chooser_dialog_cb,
-#            resetter,
-#            Icon
-#            )
 
         browser.connect(
             "clicked",
@@ -175,29 +140,10 @@ class IconSetEditorDialog:
             path
             )
 
-#        redoer.connect(
-#            "clicked",
-#            self.redo_cb,
-#            redoer,
-#            resetter,
-#            Icon
-#            )
-
-#        resetter.connect(
-#            "clicked",
-#            self.reset_default_cb,
-#            redoer,
-#            resetter,
-#            Icon
-#            )
-
         btn_hbox = gtk.HBox()
         btn_hbox.set_border_width(5)
-#        btn_hbox.pack_start(selector)
         btn_hbox.pack_start(browser)
         btn_hbox.pack_start(gimper)
-#        btn_hbox.pack_start(resetter)
-#        btn_hbox.pack_start(redoer)
 
         page = gtk.VBox()
 
@@ -209,136 +155,6 @@ class IconSetEditorDialog:
         self.notebook.set_tab_label_text(page, tab_label)
         return Icon
 
-    def make_destination(self, Icon):
-        theme, context = Icon.theme, Icon.context
-        size, name, preview = Icon.size, Icon.name, Icon.preview
-
-        t = theme.split( '/' )
-        out = '/'
-        for part in t[-2], self.check_dst_size(size), context.lower(), name:
-            out = os.path.join( out, part )
-        out += os.path.splitext(preview.cur_path)[1]
-
-        thm_uid = os.lstat( os.path.split(theme)[0] ).st_uid
-        usr_uid = pwd.getpwnam( os.getlogin() ).pw_uid
-
-        if thm_uid == usr_uid:
-            root = '/'
-            for part in t[:-2]:
-                root = os.path.join( root, part )
-        else:
-            root = '/' + os.path.join( os.path.expanduser('~')[1:], ".icons" )
-
-        return preview.cur_path, root + out
-
-    def check_dst_size(self, size):
-        if type(size) == int:
-            return "%sx%s" % (size, size)
-        else:
-            return size
-
-    def backup(self, src):
-        backup_dir = os.path.join(os.getcwd(), 'backup')
-        backup = os.path.join(
-            backup_dir,
-            os.path.split(src)[1] + '.backup.' + str( time.time() )
-            )
-
-        if not os.path.isdir(backup_dir):
-            os.mkdir(backup_dir)
-        shutil.copy( src, backup )
-
-        print 'DEBUG: Backup  >', backup
-        return
-
-    def replace(self, Icon):
-        src, dst = self.make_destination(Icon)
-
-        print '\nDEBUG: REPLACE ICON!'
-        print 'DEBUG: Source  >', src
-        print "DEBUG: Outpath >", dst
-
-        try:
-            if self.use_links.get_active():
-                self.symlink(src, dst)
-            else:
-                self.copy(src, dst)
-        except Exception, inst:
-            print "DEBUG: Error   >", inst
-        return
-
-    def symlink(self, src, dst):
-        if os.path.lexists(dst):
-            self.backup(dst)
-            os.remove(dst)
-
-        d = os.path.split(dst)[0]
-        if not os.path.isdir(d):
-            os.makedirs(d)
-
-        os.symlink(src, dst)
-        print "DEBUG: Symlinking... Success!"
-        return
-
-    def copy(self, src, dst):
-        if os.path.lexists(dst):
-            self.backup(dst)
-            os.remove(dst)
-
-        d = os.path.split(dst)[0]
-        if not os.path.isdir(d):
-            os.makedirs(d)
-
-        shutil.copy(src, dst)
-        print "DEBUG: Copy... Success!"
-        return
-
-    def icon_chooser_dialog_cb(self, selector, resetter, Icon):
-        title = "Select a %sx%s/%s/%s icon..."
-        size = Icon.size
-        
-        chooser = gtk.FileChooserDialog(
-            title % (size, size, Icon.context.lower(), Icon.name),
-            action=gtk.FILE_CHOOSER_ACTION_OPEN,
-            buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN,gtk.RESPONSE_OK)
-            )
-
-        chooser.add_shortcut_folder("/usr/share/icons")
-        home_icons = os.path.expanduser("~/.icons")
-        if os.path.isdir(home_icons):
-            chooser.add_shortcut_folder(home_icons)
-
-        f = gtk.FileFilter()
-
-        f.set_name("Images")
-        f.add_mime_type("image/png")
-        f.add_mime_type("image/jpeg")
-        f.add_mime_type("image/svg+xml")
-        f.add_pattern("*.png")
-        f.add_pattern("*.jpg")
-        f.add_pattern(".svg")
-        f.add_pattern(".svgz")
-        f.add_pattern("*.xpm")
-        chooser.add_filter(f)
-
-        f = gtk.FileFilter()
-        f.set_name("All files")
-        f.add_pattern("*")
-        chooser.add_filter(f)
-
-        response = chooser.run()
-        if response == gtk.RESPONSE_OK:
-            fn = chooser.get_filename()
-            Icon.preview.set_icon(fn)
-
-            src, dst = self.make_destination(Icon)
-            Icon.update_table(dst, src, self.use_links.get_active())
-
-            resetter.set_sensitive(True)
-
-        chooser.destroy()
-        return
-
     def gnome_open_cb(self, button, path):
         folder = os.path.split(path)[0]
         print "Opening", folder
@@ -348,30 +164,6 @@ class IconSetEditorDialog:
     def open_with_gimp_cb(self, button, path):
         print "Gimping", path
         os.system("gimp %s &" % path)
-        return
-
-    def reset_default_cb(self, event, redoer, resetter, Icon):
-        Icon.preview.reset_default_icon()
-        Icon.update_table(Icon.preview.default_path)
-
-        redoer.set_sensitive(True)
-        resetter.set_sensitive(False)
-        return
-
-    def redo_cb(self, event, redoer, resetter, Icon):
-        Icon.preview.set_icon(Icon.preview.pre_path)
-        src, dst = self.make_destination(Icon)
-        Icon.update_table(dst, src, self.use_links.get_active())
-
-        resetter.set_sensitive(True)
-        redoer.set_sensitive(False)
-        return
-
-    def use_links_toggled_cb(self, checkbutton, Icon):
-        cur_path = Icon.preview.cur_path
-        if cur_path and cur_path != Icon.preview.default_path:
-            src, dst = self.make_destination(Icon)
-            Icon.update_table(dst, src, checkbutton.get_active())
         return
 
 

@@ -847,25 +847,30 @@ class IconDatabase:
     def pixbuf_cache_append(self, Theme, name, k, ctx):
         try:
             if not self.pixbuf_cache.has_key(k):
-                pbs = []
-                for size in (16, 24, 32):
-                    pbs.append(Theme.load_icon(name, size, 0))
-
-                self.pixbuf_cache[k] = pbs
-        except:
+                if ctx != 'Animations':
+                    self.pixbuf_cache[k] = self.load_icons(Theme, name)
+                else:
+                    self.pixbuf_cache[k] = self.load_animations(Theme, name)
+        except Exception, e:
+            print e
             return False
         return True
 
-    def pixbuf_cache_update(self, Theme, name, k):
-        try:
-            pb16 = Theme.load_icon( name, 16, 0 )
-            pb24 = Theme.load_icon( name, 24, 0 )
-            pb32 = Theme.load_icon( name, 32, 0 )
-            self.pixbuf_cache[k] = (pb16, pb24, pb32)
-            return True
-        except:
-            return False
-        return
+    def load_icons(self, Theme, name):
+        pbs = []
+        for size in (16, 22, 32):
+            pbs.append(Theme.load_icon(name, size, 0))
+        return pbs
+
+    def load_animations(self, Theme, name):
+        pbs = []
+        for size in (16, 22, 32):
+            pb = Theme.load_icon(name, size, 0)
+            if pb.get_width() >= 2*size:
+                pbs.append(pb.subpixbuf(size, 0, size, size))
+            else:
+                pbs.append(pb.subpixbuf(0, 0, size, size))
+        return pbs
 
     def search(self, term):
         if len(threading.enumerate()) == 1:
