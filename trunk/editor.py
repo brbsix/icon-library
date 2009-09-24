@@ -23,7 +23,7 @@ class IconSetEditorDialog:
             "Icon Set Properties",
             root,
             gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-            (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_APPLY, gtk.RESPONSE_APPLY)
+            (gtk.STOCK_CLOSE, gtk.RESPONSE_REJECT)
             )
         self.dialog.set_has_separator(False)
 
@@ -69,29 +69,6 @@ class IconSetEditorDialog:
 
         self.dialog.vbox.show_all()
         response = self.dialog.run()
-
-        update_needed = False
-
-        if response == gtk.RESPONSE_APPLY:
-            for Icon in iconset:
-                if Icon.preview.cur_path \
-                and Icon.preview.cur_path != Icon.preview.default_path:
-                    self.replace(Icon)
-                    update_needed = True
-
-            if update_needed:
-                IconDB.pixbuf_cache_update(
-                    Theme,
-                    name,
-                    iconset_data[0] # key
-                    )
-
-                Store.model2.clear()
-                Store.model2_set_info(
-                    IconDB.results,
-                    IconDB.pixbuf_cache
-                    )
-
         self.dialog.destroy()
         return
 
