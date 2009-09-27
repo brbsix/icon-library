@@ -65,6 +65,7 @@ class IconSetEditorDialog:
             note.set_markup("<small><b>Note</b>: There is a mismatch between the reported and discoverable sizes for this icon-set.\nSizes discovered: %s\nSizes reported by %s: %s</small>" % (msizes, Theme.info[1], sizes))
             self.dialog.vbox.pack_start(note, False, padding=3)
 
+        self.notebook.grab_focus()
         self.dialog.vbox.show_all()
         response = self.dialog.run()
         self.dialog.destroy()
@@ -168,13 +169,12 @@ class IconSetEditorDialog:
         icon_hbox.pack_start(preview, padding=5)
 
         browser = gtk.Button()
-        browser.set_label('Locate on disk')
         browser.set_image(gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU))
         browser.set_tooltip_text("Open containing folder")
 
         gimper = gtk.Button()
-        gimper.set_label('Open with the GIMP')
         gimper.set_image(gtk.image_new_from_icon_name("gimp", gtk.ICON_SIZE_MENU))
+        gimper.set_tooltip_text("Open with GIMP image editor")
 
         browser.connect(
             "clicked",
@@ -190,8 +190,8 @@ class IconSetEditorDialog:
 
         btn_hbox = gtk.HBox()
         btn_hbox.set_border_width(5)
-        btn_hbox.pack_start(browser)
-        btn_hbox.pack_start(gimper)
+        btn_hbox.pack_end(browser, False)
+        btn_hbox.pack_end(gimper, False)
 
         page = gtk.VBox()
 
