@@ -62,7 +62,7 @@ class IconSetEditorDialog:
         if len(sizes) != len(msizes):
             note = gtk.Label()
             note.set_line_wrap(True)
-            note.set_markup("<small><b>Note</b>: There is a mismatch between the reported and discoverable sizes for this icon-set.\nSizes discovered: %s\nSizes reported by Gtk: %s</small>" % (msizes, sizes))
+            note.set_markup("<small><b>Note</b>: There is a mismatch between the reported and discoverable sizes for this icon-set.\nSizes discovered: %s\nSizes reported by %s: %s</small>" % (msizes, Theme.info[1], sizes))
             self.dialog.vbox.pack_start(note, False, padding=3)
 
         self.dialog.vbox.show_all()
@@ -111,6 +111,7 @@ class IconSetEditorDialog:
                 for fn in os.listdir(d):
                     if os.path.splitext(fn)[0] == name:
                         manual_sizes.append(self.parse_size(f))
+                        break
         return manual_sizes
 
     def context_size_manually_find_sizes(self, path, name):
@@ -122,6 +123,7 @@ class IconSetEditorDialog:
                 for fn in os.listdir(d):
                     if os.path.splitext(fn)[0] == name:
                         manual_sizes.append(self.parse_size(f))
+                        break
         return manual_sizes
 
     def parse_size(self, size):
