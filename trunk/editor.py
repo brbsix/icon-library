@@ -32,6 +32,7 @@ class IconSetEditorDialog:
         self.notebook.set_size_request(300, -1)
         self.notebook.set_scrollable(True)
 
+        self.dialog.set_border_width(3)
         self.dialog.vbox.pack_start(self.header, padding=6)
         self.dialog.vbox.pack_start(self.notebook, padding=8)
         return
@@ -39,22 +40,16 @@ class IconSetEditorDialog:
     def run(self, Theme, IconDB, Store, iconset_data):
         context = iconset_data[2]
         name = iconset_data[1]
-
-        iconset = ()
-        sizes = list(Theme.get_icon_sizes(name))
-        sizes.sort()
-
-        if sizes[0] == -1:
-            del sizes[0]
-            sizes += "scalable",
+        sizes, msizes = self.get_sizes(Theme, name)
 
         self.header.set_markup(
             "<b>%s</b>\n<span size=\"small\">%s - %s</span>" % (name, Theme.info[1], context)
             )
         self.header.set_justify(gtk.JUSTIFY_CENTER)
 
+        iconset = ()
         l_color = self.dialog.get_style().text[gtk.STATE_INSENSITIVE].to_string()
-        for size in sizes:
+        for size in msizes:
             Icon = self.make_and_append_page(
                 Theme,
                 context,
@@ -64,17 +59,94 @@ class IconSetEditorDialog:
                 )
             if Icon: iconset += Icon,
 
+        if len(sizes) != len(msizes):
+            note = gtk.Label()
+            note.set_line_wrap(True)
+            note.set_markup("<small><b>Note</b>: There is a mismatch between the reported and discoverable sizes for this icon-set.\nSizes discovered: %s\nSizes reported by Gtk: %s</small>" % (msizes, sizes))
+            self.dialog.vbox.pack_start(note, False, padding=3)
+
         self.dialog.vbox.show_all()
         response = self.dialog.run()
         self.dialog.destroy()
         return
 
+    def get_sizes(self, Theme, name):
+        theme_sizes = list(Theme.get_icon_sizes(name))
+
+        path = Theme.lookup_icon(name, 24, 0).get_filename()
+        if self.is_size_context_fstruct(path):
+            manual_sizes = self.size_context_manually_find_sizes(path, name)
+        else:
+            manual_sizes = self.context_size_manually_find_sizes(path, name)
+
+        theme_sizes.sort()
+        manual_sizes.sort()
+        return theme_sizes, manual_sizes
+
+    def is_size_context_fstruct(self, path):
+        search_path = '/'+os.path.join(*path.split('/')[:-3])
+
+        is_digit = False
+        i = 0
+        for f in os.listdir(search_path):
+            p = os.path.join(search_path, f)
+            if os.path.isdir(p) and f[0].isdigit():
+                if i > 2:
+                    break
+                is_digit = True
+                break
+            elif os.path.isdir(p):
+                i += 1
+
+        return is_digit
+
+    def size_context_manually_find_sizes(self, path, name):
+        search_path = '/'+os.path.join(*path.split('/')[:-3])
+        ctx = path.split('/')[-2]
+
+        manual_sizes = []
+        for f in os.listdir(search_path):
+            d = os.path.join(search_path, f, ctx)
+            if os.path.isdir(d):
+                for fn in os.listdir(d):
+                    if os.path.splitext(fn)[0] == name:
+                        manual_sizes.append(self.parse_size(f))
+        return manual_sizes
+
+    def context_size_manually_find_sizes(self, path, name):
+        search_path = '/'+os.path.join(*path.split('/')[:-2])
+        manual_sizes = []
+        for f in os.listdir(search_path):
+            d = os.path.join(search_path, f)
+            if os.path.isdir(d):
+                for fn in os.listdir(d):
+                    if os.path.splitext(fn)[0] == name:
+                        manual_sizes.append(self.parse_size(f))
+        return manual_sizes
+
+    def parse_size(self, size):
+        if isinstance(size, int) or size == 'scalable':
+            return size
+        try:
+            size = int(size)
+            return size
+        except:
+            pass
+        try:
+            size = int(size.split('x')[0])
+            return size
+        except:
+            print 'Size not parsable:', size
+        return size
+
     def make_and_append_page(self, Theme, context, name, size, l_color):
-        if type(size) == int:
+        if isinstance(size, int):
             path = Theme.lookup_icon(name, size, 0).get_filename()
+            pixbuf = Theme.load_icon(name, size, 0)
             tab_label = "%sx%s" % (size, size)
         else:
             path = Theme.lookup_icon(name, 64, gtk.ICON_LOOKUP_FORCE_SVG).get_filename()
+            pixbuf = Theme.load_icon(name, 64, gtk.ICON_LOOKUP_FORCE_SVG)
             tab_label = size
 
         Icon = IconInfo(l_color)
@@ -83,7 +155,8 @@ class IconSetEditorDialog:
             context,
             name,
             size,
-            path
+            path,
+            pixbuf
             )
 
         info_table = Icon.get_table()
@@ -188,15 +261,16 @@ class IconInfo:
             table.attach(r_label, 1, 2, i, j, xpadding=10, ypadding=3)
         return
 
-    def set_info(self, theme, context, name, size, path):
+    def set_info(self, theme, context, name, size, path, pixbuf):
         self.theme = theme
         self.context = context
         self.name = name
         self.size = size
         self.path = path
+        self.pixbuf = pixbuf
         self.target = None
 
-        self.preview = IconPreview(path, size)
+        self.preview = IconPreview(pixbuf)
         self.update_table(path)
         return
 

@@ -131,16 +131,10 @@ class ColorSwatch(gtk.DrawingArea):
 
 
 class IconPreview(gtk.DrawingArea):
-    def __init__(self, path, size):
+    def __init__(self, pixbuf):
         gtk.DrawingArea.__init__(self)
-        self.path = path
 
-        if size == 'scalable':
-            self.pixbuf = gtk.gdk.pixbuf_new_from_file_at_size(path, 64, 64)
-        else:
-            self.pixbuf = gtk.gdk.pixbuf_new_from_file_at_size(path, size, size)
-
-        x, y = self.pixbuf.get_width(), self.pixbuf.get_height()
+        x, y = pixbuf.get_width(), pixbuf.get_height()
         if max(x,y) >= 72:
             self.set_size_request(
                 x + 8,
@@ -149,16 +143,15 @@ class IconPreview(gtk.DrawingArea):
         else:
             self.set_size_request(72, 72)
 
-        self.set_events(gtk.gdk.BUTTON_PRESS_MASK)
-        self.connect("expose_event", self.expose)
+        self.connect("expose_event", self.expose, pixbuf)
         return
 
-    def expose(self, widget, event):
+    def expose(self, widget, event, pixbuf):
         cr = widget.window.cairo_create()
         cr.rectangle(event.area)
         cr.clip()
         alloc = self.get_allocation()
-        self.draw(cr, alloc, self.pixbuf)
+        self.draw(cr, alloc, pixbuf)
         del cr
         return False
 

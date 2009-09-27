@@ -19,6 +19,12 @@ import threading
 gtk.gdk.threads_init()
 
 
+# print colours
+WARNING = "\033[93m"
+FAIL = "\033[91m"
+ENDC = "\033[0m"
+
+
 class IconLibraryController:
     """ The App class is the controller for this application """
     def __init__(self):
@@ -937,7 +943,7 @@ class InfoModel:
         spec = StandardIconNamingSpec()
 
         self.model1.clear()
-        self.model1.append( ("<b>All Contexts</b>", "") )
+        self.model1.append( ("<b>All Contexts</b>", "All Contexts") )
         ctxs = list( Theme.list_contexts() )
         ctxs.sort()
         for ctx in ctxs:
