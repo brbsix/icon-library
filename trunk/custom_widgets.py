@@ -138,7 +138,7 @@ class IconPreview(gtk.DrawingArea):
         if size == 'scalable':
             self.pixbuf = gtk.gdk.pixbuf_new_from_file_at_size(path, 64, 64)
         else:
-            self.pixbuf = gtk.gdk.pixbuf_new_from_file(path)
+            self.pixbuf = gtk.gdk.pixbuf_new_from_file_at_size(path, size, size)
 
         x, y = self.pixbuf.get_width(), self.pixbuf.get_height()
         if max(x,y) >= 72:

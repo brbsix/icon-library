@@ -11,9 +11,6 @@ pygtk.require("2.0")
 
 import os
 import gtk
-import pwd
-import time
-import shutil
 from custom_widgets import IconPreview
 
 
