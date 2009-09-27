@@ -13,6 +13,20 @@ class StandardIconNamingSpec:
         http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html """
 
     def __init__(self):
+
+        self.context_comments = {
+            "actions": "Icons which are generally used in menus and dialogs for interacting with the user.",
+            "animations": "Animated images used to represent loading web sites, or other background processing which may be less suited to more verbose progress reporting in the user interface.",
+            "categories": "Icons that are used for categories in the Programs menu, or the Control Center, for separating applications, preferences, and settings for display to the user.",
+            "devices": "Icons for hardware that is contained within or connected to the computing device.",
+            "emblems": "Icons for tags and properties of files, that are displayed in the file manager.",
+            "emotes": "Icons for emotions that are expressed through text chat applications such as :-) or :-P in IRC or instant messengers.",
+            "international": "Icons for international denominations such as flags.",
+            "mimetypes": "Icons for different types of data, such as audio or image files.",
+            "places": "Icons used to represent locations, either on the local filesystem, or through remote connections.",
+            "status": "Icons for presenting status to the user. This context contains icons for warning and error dialogs, as well as for the current weather, appointment alarms, and battery status."
+            }
+
         self.standard_names = {}
         self.standard_names["Actions"] = (
             "address-book-new",
@@ -331,3 +345,8 @@ class StandardIconNamingSpec:
             Returns True if context & name are in the Icon Naming Specification"""
         return self.standard_names.has_key(context) and \
             icon in self.standard_names[context]
+
+    def get_context_comment(self, context):
+        if self.context_comments.has_key(context.lower()):
+            return self.context_comments[context.lower()]
+        return None

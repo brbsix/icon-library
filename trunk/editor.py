@@ -44,7 +44,7 @@ class IconSetEditorDialog:
         name = iconset_data[1]
 
         iconset = ()
-        sizes = list( Theme.get_icon_sizes(name) )
+        sizes = list(Theme.get_icon_sizes(name))
         sizes.sort()
 
         if sizes[0] == -1:
@@ -75,7 +75,6 @@ class IconSetEditorDialog:
     def make_and_append_page(self, Theme, context, name, size, l_color):
         if type(size) == int:
             path = Theme.lookup_icon(name, size, 0).get_filename()
-            if os.path.splitext(path)[1] == '.svg': return None
             tab_label = "%sx%s" % (size, size)
         else:
             path = Theme.lookup_icon(name, 64, gtk.ICON_LOOKUP_FORCE_SVG).get_filename()

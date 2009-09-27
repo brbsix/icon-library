@@ -766,8 +766,9 @@ class IconDatabase:
         return conn, cursor
 
     def create(self, Theme, progressbar=None):
-        import standards
-        NamingSpec = standards.StandardIconNamingSpec()
+        from standards import StandardIconNamingSpec
+        spec = StandardIconNamingSpec()
+
         conn, cursor = self.new_conn()
         i, j = 0, 0
 
@@ -783,7 +784,7 @@ class IconDatabase:
 
                 if self.pixbuf_cache_append(Theme, ico, k, ctx):
                     scalable = -1 in Theme.get_icon_sizes(ico)
-                    standard = NamingSpec.isstandard(ctx, ico)
+                    standard = spec.isstandard(ctx, ico)
                     cursor.execute(
                         "INSERT INTO theme VALUES (?,?,?,?,?,?,?)",
                         (k, ico, ctx, standard, scalable, inherited == tn, inherited)
@@ -917,7 +918,7 @@ class InfoModel:
         return
 
     def make_model1(self):
-        model1 = gtk.ListStore(str)
+        model1 = gtk.ListStore(str, str)
         return model1
 
     def make_model2(self):
@@ -932,12 +933,16 @@ class InfoModel:
         return model2
 
     def model1_set_info(self, Theme):
+        from standards import StandardIconNamingSpec
+        spec = StandardIconNamingSpec()
+
         self.model1.clear()
-        self.model1.append( ("<b>All Contexts</b>",) )
+        self.model1.append( ("<b>All Contexts</b>", "") )
         ctxs = list( Theme.list_contexts() )
         ctxs.sort()
         for ctx in ctxs:
-            self.model1.append( (ctx,) )
+            comments = spec.get_context_comment(ctx)
+            self.model1.append((ctx, comments or ctx))
         return
 
     def model2_set_info(self, results, pixbuf_cache):
@@ -983,9 +988,14 @@ class DisplayModel:
         renderer10.set_property("xpad", 5)
 
         column10 = gtk.TreeViewColumn("Context Filter", renderer10, markup=0)
-
         self.view1.append_column(column10)
+
+        self.view1.set_tooltip_column(1)
         return self.view1
+
+    def view1_query_tooltip_cb(self, *args):
+        print args
+        return
 
     def make_view2(self, model2):
         """ Make the main view for the icon view list store """
