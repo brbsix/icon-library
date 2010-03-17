@@ -61,8 +61,8 @@ class IconLibraryController:
         self.Display = DisplayModel()
 
         Display = self.Display
-        Display.make_view1(self.Store.model1)
-        Display.make_view2(self.Store.model2)
+        Display.make_filters_view(self.Store.contexts_model)
+        Display.make_icon_set_view(self.Store.icon_rows_model)
 
         self.cswatch_focus = None
 
@@ -74,7 +74,7 @@ class IconLibraryController:
             Display
             )
 
-        self.Store.model1_set_info(self.Theme)
+        self.Store.contexts_model_set_info(self.Theme)
         self.Gui.root.show_all()
         self.search_and_display(self.Gui.text_entry)
         return
@@ -115,7 +115,7 @@ class IconLibraryController:
             Gui.make_header(Theme)
             )
 
-        self.Store.model1_set_info(Theme)
+        self.Store.contexts_model_set_info(Theme)
         self.search_and_display(self.Gui.text_entry)
         return
 
@@ -142,8 +142,8 @@ class IconLibraryController:
             len(results)
             )
 
-        self.Store.model2.clear()
-        self.Store.model2_set_info(
+        self.Store.icon_rows_model.clear()
+        self.Store.icon_rows_model_set_info(
             results,
             IconDB.pixbuf_cache
             )
@@ -154,7 +154,7 @@ class IconLibraryController:
         cs = self.cswatch_focus
         if cs != successor:
             cs.relinquish_focus()
-            self.Display.view2_modify_colors( successor.get_colors() )
+            self.Display.icon_set_view_modify_colors( successor.get_colors() )
         self.cswatch_focus = successor
         return
 
@@ -192,7 +192,7 @@ class IconLibraryController:
         return
 
     def row_activated_cb(self, treeview, event):
-        """ Iconset (view2) treeview row activated callback """
+        """ Iconset (icon_set_view) treeview row activated callback """
         if event.button == 3:
             import dialogs
 
@@ -230,14 +230,14 @@ class IconLibraryController:
 
         Display = self.Display
 
-        for row in self.Store.model2:
+        for row in self.Store.icon_rows_model:
             if row[0][0] == "<":
                 if row[0][3:-4] == rname:
-                    Display.view2.set_cursor( row.path )
+                    Display.icon_set_view.set_cursor( row.path )
                     found = True
                     break
             elif row[0] == rname:
-                Display.view2.set_cursor( row.path )
+                Display.icon_set_view.set_cursor( row.path )
                 found = True
                 break
         if not found:
@@ -400,6 +400,7 @@ class IconLibraryGui:
             )
 
         scrollers = self.setup_scrolled_panels(vbox)
+             
 
         self.setup_listviews(
             Controller,
@@ -407,14 +408,14 @@ class IconLibraryGui:
             scrollers
             )
 
-        btm_hboxes = self.setup_bottom_toolbar(vbox)
+        self.setup_bottom_toolbar(vbox)
 
         self.setup_feedback_label(
             IconDB,
-            btm_hboxes[1]
+            self.status_hbox
             )
 
-        self.setup_color_swatches(Controller, btm_hboxes[2])
+        self.setup_color_swatches(Controller, self.colour_swatches_hbox)
         return
 
     def setup_top_toolbar(self, Controller, Theme, vbox):
@@ -497,45 +498,45 @@ class IconLibraryGui:
         hpaned.set_position(135)
         hpaned.set_border_width(3)
 
-        scroller1 = gtk.ScrolledWindow(hadjustment=None, vadjustment=None)
-        scroller1.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        scroller1.set_shadow_type(gtk.SHADOW_IN)
+        self.context_scroller = self.create_scroller()
+        self.icons_scroller = self.create_scroller()
 
-        scroller2 = gtk.ScrolledWindow(hadjustment=None, vadjustment=None)
-        scroller2.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        scroller2.set_shadow_type(gtk.SHADOW_IN)
-
-        hpaned.pack1(scroller1)
-        hpaned.pack2(scroller2)
+        hpaned.pack1(self.context_scroller)
+        hpaned.pack2(self.icons_scroller)
 
         vbox.pack_start(hpaned)
-        return (scroller1, scroller2)
+        return (self.context_scroller, self.icons_scroller)
+
+    def create_scroller(self):
+        scroller = gtk.ScrolledWindow(hadjustment=None, vadjustment=None)
+        scroller.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        scroller.set_shadow_type(gtk.SHADOW_IN)
+        return scroller
 
     def setup_listviews(self, Controller, Display, scrollers):
-        view1, view2 = Display.view1, Display.view2
+        filters_view, icon_set_view = Display.filters_view, Display.icon_set_view
 
-        scrollers[0].add(view1)
-        scrollers[1].add(view2)
+        self.context_scroller.add(filters_view)
+        self.icons_scroller.add(icon_set_view)
 
-        view1.connect("cursor-changed", Controller.context_filter_cb) 
-        view2.connect_after("button-release-event", Controller.row_activated_cb)
-        view2.connect("row-activated", Controller.row_activated_2click_cb)
+        filters_view.connect("cursor-changed", Controller.context_filter_cb) 
+        icon_set_view.connect_after("button-release-event", Controller.row_activated_cb)
+        icon_set_view.connect("row-activated", Controller.row_activated_2click_cb)
         return
 
     def setup_bottom_toolbar(self, vbox):
         btm_hbox = gtk.HBox()
         btm_hbox.set_homogeneous(True)
 
-        btm_hbox0 = gtk.HBox()
-        btm_hbox1 = gtk.HBox()
-        btm_hbox2 = gtk.HBox()
+        self.status_hbox = gtk.HBox()
+        self.colour_swatches_hbox = gtk.HBox()
 
-        btm_hbox.add(btm_hbox0)
-        btm_hbox.add(btm_hbox1)
-        btm_hbox.add(btm_hbox2)
+        btm_hbox.add(gtk.HBox())
+        btm_hbox.add(self.status_hbox)
+        btm_hbox.add(self.colour_swatches_hbox)
 
         vbox.pack_end(btm_hbox, False)
-        return  (btm_hbox0, btm_hbox1, btm_hbox2)
+        return
 
     def setup_feedback_label(self, IconDB, btm_hbox):
         self.feedback_label = gtk.Label()
@@ -554,41 +555,31 @@ class IconLibraryGui:
 
         style = self.root.get_style()
         cb = Controller.change_bg_color_cb
+        
+        options = [
+                   {'name':"Default", 'default':True},
+                   {'name':"White",     'color':"#FFFFFF" },
+                   {'name':"Grey",      'color':"#9C9C9C",                     'insensitive':"#525252"},
+                   {'name':"Dark Grey", 'color':"#525252", 'normal':"#E6E6E6", 'insensitive':"#9E9E9E"}
+                  ]
 
-        sel0 = custom_widgets.ColorSwatch(
-            cb,
-            style,
-            tip="Default",
-            default=True
-            )
+        color_widgets = []
 
-        sel1 = custom_widgets.ColorSwatch(
-            cb,
-            style,
-            bg="#FFFFFF",
-            tip="White"
-            )
+        for o in options:
+          w = custom_widgets.ColorSwatch(
+             cb,
+             style,
+             tip=o['name'],
+             default = o.get('default', False),
+             bg = o.get('color', None),
+             normal_color = o.get('normal',None),
+             insensitive_color = o.get('insensitive', None)
+             )
+          color_widgets.append(w)
 
-        sel2 = custom_widgets.ColorSwatch(
-            cb,
-            style,
-            bg="#9C9C9C",
-            txt2="#525252",
-            tip="Grey"
-            )
+        Controller.cswatch_focus = color_widgets[0].give_focus()
 
-        sel3 = custom_widgets.ColorSwatch(
-            cb,
-            style,
-            bg="#525252",
-            txt1="#E6E6E6",
-            txt2="#9E9E9E",
-            tip="Dark grey"
-            )
-
-        Controller.cswatch_focus = sel0.give_focus()
-
-        for sel in sel3, sel2, sel1, sel0:
+        for sel in reversed(color_widgets):
             a = gtk.Alignment(0.5,0.5)
             a.add(sel)
             btm_hbox.pack_end(a, False)
@@ -919,16 +910,16 @@ class IconDatabase:
 
 class InfoModel:
     def __init__(self):
-        self.model1 = self.make_model1()
-        self.model2 = self.make_model2()
+        self.contexts_model = self.make_contexts_model()
+        self.icon_rows_model = self.make_icon_rows_model()
         return
 
-    def make_model1(self):
-        model1 = gtk.ListStore(str, str)
-        return model1
+    def make_contexts_model(self):
+        contexts_model = gtk.ListStore(str, str)
+        return contexts_model
 
-    def make_model2(self):
-        model2 = gtk.ListStore(
+    def make_icon_rows_model(self):
+        icon_rows_model = gtk.ListStore(
             str,
             str,
             gtk.gdk.Pixbuf,
@@ -936,30 +927,30 @@ class InfoModel:
             gtk.gdk.Pixbuf,
             str
             )
-        return model2
+        return icon_rows_model
 
-    def model1_set_info(self, Theme):
+    def contexts_model_set_info(self, Theme):
         from standards import StandardIconNamingSpec
         spec = StandardIconNamingSpec()
 
-        self.model1.clear()
-        self.model1.append( ("<b>All Contexts</b>", "All Contexts") )
+        self.contexts_model.clear()
+        self.contexts_model.append( ("<b>All Contexts</b>", "All Contexts") )
         ctxs = list( Theme.list_contexts() )
         ctxs.sort()
         for ctx in ctxs:
             comments = spec.get_context_comment(ctx)
-            self.model1.append((ctx, comments or ctx))
+            self.contexts_model.append((ctx, comments or ctx))
         return
 
-    def model2_set_info(self, results, pixbuf_cache):
+    def icon_rows_model_set_info(self, results, pixbuf_cache):
         appender = threading.Thread(
-            target=self.__model2_appender,
+            target=self.__icon_rows_model_appender,
             args=(results, pixbuf_cache)
             )
         appender.start()
         return
 
-    def __model2_appender(self, results, pixbuf_cache):
+    def __icon_rows_model_appender(self, results, pixbuf_cache):
         for key, ico, context, standard, scalable, inherited, inherited_name in results:
             if key in pixbuf_cache:
                 pb0 = pixbuf_cache[key][0]
@@ -981,113 +972,105 @@ class InfoModel:
                     ico = "<b>%s</b>" % ico
 
                 gtk.gdk.threads_enter()
-                self.model2.append( (ico, context, pb0, pb1, pb2, notes) )
+                self.icon_rows_model.append( (ico, context, pb0, pb1, pb2, notes) )
                 gtk.gdk.threads_leave()
         return
 
 
 class DisplayModel:
-    def make_view1(self, model1):
+    def make_filters_view(self, contexts_model):
         """ Make the view for the context filter list store """
-        self.view1 = gtk.TreeView(model1)
-        renderer10 = gtk.CellRendererText()
-        renderer10.set_property("xpad", 5)
+        self.filters_view = gtk.TreeView(contexts_model)
+        context_item_renderer = gtk.CellRendererText()
+        context_item_renderer.set_property("xpad", 5)
 
-        column10 = gtk.TreeViewColumn("Context Filter", renderer10, markup=0)
-        self.view1.append_column(column10)
+        context_filter_column = gtk.TreeViewColumn("Context Filter", context_item_renderer, markup=0)
+        self.filters_view.append_column(context_filter_column)
 
-        self.view1.set_tooltip_column(1)
-        return self.view1
+        self.filters_view.set_tooltip_column(1)
+        return self.filters_view
 
-    def view1_query_tooltip_cb(self, *args):
+    def filters_view_query_tooltip_cb(self, *args):
         print args
         return
 
-    def make_view2(self, model2):
+    def make_icon_set_view(self, icon_rows_model):
         """ Make the main view for the icon view list store """
         import pango
 
-        self.view2 = gtk.TreeView(model2)
-        self.view2.set_events( gtk.gdk.BUTTON_PRESS_MASK )
+        self.icon_set_view = gtk.TreeView(icon_rows_model)
+        self.icon_set_view.set_events( gtk.gdk.BUTTON_PRESS_MASK )
         # setup the icon name cell-renderer
-        self.renderer20 = gtk.CellRendererText()
-        self.renderer20.set_property("xpad", 5)
-        self.renderer20.set_property("wrap-width", 225)
-        self.renderer20.set_property("wrap-mode", pango.WRAP_WORD)
+        self.name_column_renderer = gtk.CellRendererText()
+        self.name_column_renderer.set_property("xpad", 5)
+        self.name_column_renderer.set_property("wrap-width", 225)
+        self.name_column_renderer.set_property("wrap-mode", pango.WRAP_WORD)
 
-        self.renderer21 = gtk.CellRendererText()
-        self.renderer21.set_property("wrap-width", 125)
-        self.renderer21.set_property("wrap-mode", pango.WRAP_WORD)
+        self.context_column_renderer = gtk.CellRendererText()
+        self.context_column_renderer.set_property("wrap-width", 125)
+        self.context_column_renderer.set_property("wrap-mode", pango.WRAP_WORD)
 
         # Setup the icon pixbuf cell-renderers
-        self.renderer22 = gtk.CellRendererPixbuf()
-        self.renderer23 = gtk.CellRendererPixbuf()
-        self.renderer24 = gtk.CellRendererPixbuf()
-
-        self.renderer22.set_property('width', 56)
-        self.renderer23.set_property('width', 56)
-        self.renderer24.set_property('width', 56)
-
-        self.renderer22.set_property('height', 48)
-        self.renderer23.set_property('height', 48)
-        self.renderer24.set_property('height', 48)
+        self.icon_renderers = []
+        for i in range(0,3):
+          r = gtk.CellRendererPixbuf()
+          r.set_property('width', 56)
+          r.set_property('height', 48)
+          self.icon_renderers.append(r)
 
         # Setup the icon islink cell-render
-        self.renderer25 = gtk.CellRendererText()
-        self.renderer25.set_property('xpad', 5)
-        self.renderer25.set_property('size-points', 7)
-        self.renderer25.set_property(
+        self.notes_column_renderer = gtk.CellRendererText()
+        self.notes_column_renderer.set_property('xpad', 5)
+        self.notes_column_renderer.set_property('size-points', 7)
+        self.notes_column_renderer.set_property(
             'foreground',
-            self.view2.get_style().text[gtk.STATE_INSENSITIVE].to_string()
+            self.icon_set_view.get_style().text[gtk.STATE_INSENSITIVE].to_string()
             )
 
         # Connect columns to columns in icon view model
-        column20 = gtk.TreeViewColumn("Name", self.renderer20, markup=0)
-        column21 = gtk.TreeViewColumn("Context", self.renderer21, text=1)
-        column22 = gtk.TreeViewColumn("Graphics")
-        column23 = gtk.TreeViewColumn("Notes", self.renderer25, text=5)
+        name_column = gtk.TreeViewColumn("Name", self.name_column_renderer, markup=0)
+        context_column = gtk.TreeViewColumn("Context", self.context_column_renderer, text=1)
+        graphics_column = gtk.TreeViewColumn("Graphics")
+        notes_column = gtk.TreeViewColumn("Notes", self.notes_column_renderer, text=5)
 
         # pack pixbuf cell renderers into "Graphics" column
-        column22.pack_start(self.renderer22, False)
-        column22.pack_start(self.renderer23, False)
-        column22.pack_start(self.renderer24, False)
+        for i,r in enumerate(self.icon_renderers):
+          graphics_column.pack_start(r, False)
+          graphics_column.set_attributes(r, pixbuf=i + 2)
 
         # Connect pixbuf renderers to columns in icon view model
-        column22.set_attributes(self.renderer22, pixbuf=2)
-        column22.set_attributes(self.renderer23, pixbuf=3)
-        column22.set_attributes(self.renderer24, pixbuf=4)
-
+        
+ 
         # append column to icon view
-        self.view2.append_column(column20)
-        self.view2.append_column(column21)
-        self.view2.append_column(column22)
-        self.view2.append_column(column23)
+        self.icon_set_view.append_column(name_column)
+        self.icon_set_view.append_column(context_column)
+        self.icon_set_view.append_column(graphics_column)
+        self.icon_set_view.append_column(notes_column)
 
-        column20.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
-        column21.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
-        column22.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
-        return self.view2
+        name_column.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
+        context_column.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
+        graphics_column.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
+        return self.icon_set_view
 
-    def view2_modify_colors(self, colors):
+    def icon_set_view_modify_colors(self, colors):
         bg, txt_norm, txt_insens, default = colors
         if default:
             bg_copy = bg
             bg = None
         # text rendereres
-        rndrs = self.renderer20, self.renderer21
+        rndrs = self.name_column_renderer, self.context_column_renderer
         for r in rndrs:
             r.set_property('foreground', txt_norm)
             r.set_property('cell-background', bg)
-        # pixbuf renderers
-        rndrs = self.renderer22, self.renderer23, self.renderer24
-        for r in rndrs:
+
+        for r in self.icon_renderers:
             r.set_property('cell-background', bg)
         # notes
-        self.renderer25.set_property('foreground', txt_insens)
-        self.renderer25.set_property('cell-background', bg)
+        self.notes_column_renderer.set_property('foreground', txt_insens)
+        self.notes_column_renderer.set_property('cell-background', bg)
         # base, and redraw
         if default:
-            self.view2.modify_base( gtk.STATE_NORMAL, gtk.gdk.color_parse(bg_copy) )
+            self.icon_set_view.modify_base( gtk.STATE_NORMAL, gtk.gdk.color_parse(bg_copy) )
         else:
-            self.view2.modify_base( gtk.STATE_NORMAL, gtk.gdk.color_parse(bg) )
+            self.icon_set_view.modify_base( gtk.STATE_NORMAL, gtk.gdk.color_parse(bg) )
         return

@@ -22,13 +22,13 @@ PI_OVER_180 = 0.017453292519943295
 
 
 class ColorSwatch(gtk.DrawingArea):
-    def __init__(self, cb, style, bg=None, txt1=None, txt2=None, tip=None, default=False):
+    def __init__(self, cb, style, bg=None, normal_color=None, insensitive_color=None, tip=None, default=False):
         gtk.DrawingArea.__init__(self)
         self.default = default
 
         self.bg = bg or style.base[gtk.STATE_NORMAL].to_string()
-        self.text_normal = txt1 or style.text[gtk.STATE_NORMAL].to_string()
-        self.text_insensitive = txt2 or style.text[gtk.STATE_INSENSITIVE].to_string()
+        self.text_normal = normal_color or style.text[gtk.STATE_NORMAL].to_string()
+        self.text_insensitive = insensitive_color or style.text[gtk.STATE_INSENSITIVE].to_string()
 
         self.swatch_color_f = self.to_floats(self.bg)
         self.BORDER_COLOR = self.to_floats( style.dark[gtk.STATE_NORMAL] )
