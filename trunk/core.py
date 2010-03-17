@@ -15,6 +15,8 @@ import gobject
 import sqlite3
 import threading
 import gui
+import store
+import export
 
 #Initializing the gtk's thread engine
 gtk.gdk.threads_init()
@@ -58,7 +60,7 @@ class IconLibraryController:
     def init_browser(self):
         """ Function initialises browser gui """
         self.IconDB.load()
-        self.Store = InfoModel()
+        self.Store = store.InfoModel()
         self.Display = DisplayModel()
 
         Display = self.Display
@@ -279,6 +281,10 @@ class IconLibraryController:
         self.IconDB.set_context_filter(ctx)
         self.search_and_display(self.Gui.text_entry)
         return
+    def export(self, button):
+        export.HTML(self.Store)        
+        
+        return
 
     def search_entry_cb( self, search_entry, text):
         self.search_and_display(text)
@@ -304,6 +310,8 @@ class IconLibraryController:
         """ Starts the app """
         gtk.main()
         return
+
+    
 
 
 class IconTheme(gtk.IconTheme):
@@ -544,71 +552,6 @@ class IconDatabase:
     def get_length(self):
         """ Returns the total number of icons in the IconDB """
         return self.length
-
-
-class InfoModel:
-    def __init__(self):
-        
-        self.contexts_model = gtk.ListStore(str)
-
-        self.icon_rows_model = gtk.ListStore(
-            str,
-            str,
-            gtk.gdk.Pixbuf,
-            gtk.gdk.Pixbuf,
-            gtk.gdk.Pixbuf,
-            str
-            )
-        return
-
-
-    def contexts_model_set_info(self, Theme):
-        from standards import StandardIconNamingSpec
-        spec = StandardIconNamingSpec()
-
-        self.contexts_model.clear()
-        self.contexts_model.append( ["All Contexts"] )
-
-        ctxs = list( Theme.list_contexts() )
-        ctxs.sort()
-        for ctx in ctxs:
-            comments = spec.get_context_comment(ctx)
-            self.contexts_model.append([ctx])
-        return
-
-    def icon_rows_model_set_info(self, results, pixbuf_cache):
-        appender = threading.Thread(
-            target=self.__icon_rows_model_appender,
-            args=(results, pixbuf_cache)
-            )
-        appender.start()
-        return
-
-    def __icon_rows_model_appender(self, results, pixbuf_cache):
-        for key, ico, context, standard, scalable, inherited, inherited_name in results:
-            if key in pixbuf_cache:
-                pb0 = pixbuf_cache[key][0]
-                pb1 = pixbuf_cache[key][1]
-                pb2 = pixbuf_cache[key][2]
-
-                notes = None
-                if key != ico:
-                    notes = "Symlink"
-                if not scalable:
-                    if not notes:
-                        notes = "Fixed Only"
-                    else:
-                        notes += ", Fixed Only"
-                if not inherited:
-                    if not notes: notes = ""
-                    notes += "\nInherited from %s" % inherited_name
-                if standard:
-                    ico = "<b>%s</b>" % ico
-
-                gtk.gdk.threads_enter()
-                self.icon_rows_model.append( (ico, context, pb0, pb1, pb2, notes) )
-                gtk.gdk.threads_leave()
-        return
 
 
 class DisplayModel:
