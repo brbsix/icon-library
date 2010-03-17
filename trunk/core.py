@@ -274,7 +274,8 @@ class IconLibraryController:
     def context_filter_cb(self, combo):
         """ Filter search results by selected context """
         ctx= combo.get_active_text() #treeview.get_selection().get_selected()
-        if combo.get_active == 0: ctx = ''
+        #print( combo.get_active())
+        #if combo.get_active() == 0: ctx = ""
         self.IconDB.set_context_filter(ctx)
         self.search_and_display(self.Gui.text_entry)
         return
@@ -371,7 +372,7 @@ class IconDatabase:
         self.results = None
         self.standard_only = False
         self.inherited_only = False
-        self.ctx_filter = "<b>All Contexts</b>"
+        self.ctx_filter = "All Contexts"
         return
 
     def new_conn(self):
@@ -500,7 +501,7 @@ class IconDatabase:
                 query += " AND standard"
             if self.inherited_only:
                 query += " AND inherited"
-            if self.ctx_filter != "<b>All Contexts</b>":
+            if self.ctx_filter != "All Contexts":
                 query += " AND context=\"%s\" ORDER BY name" % self.ctx_filter
             else:
                 query += " ORDER BY context, name"
@@ -513,7 +514,7 @@ class IconDatabase:
                     query += " AND inherited"
                 else:
                     query += " WHERE inherited"
-            if self.ctx_filter != "<b>All Contexts</b>":
+            if self.ctx_filter != "All Contexts":
                 if self.standard_only or self.inherited_only:
                     query += " AND context=\"%s\" ORDER BY name" % self.ctx_filter
                 else:
