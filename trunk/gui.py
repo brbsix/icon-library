@@ -204,7 +204,9 @@ class IconLibraryGui:
     def setup_export_button(self, Controller):
       button = gtk.Button()
       button.set_image( gtk.image_new_from_icon_name("document-export", gtk.ICON_SIZE_SMALL_TOOLBAR) )
+      button.set_label("Export HTML")
       button.connect( "clicked", Controller.export )
+
       self.export_button = button
       return
 

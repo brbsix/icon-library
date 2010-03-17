@@ -282,7 +282,7 @@ class IconLibraryController:
         self.search_and_display(self.Gui.text_entry)
         return
     def export(self, button):
-        export.HTML(self.Store)        
+        export.HTML(self.Store,self.Theme)        
         
         return
 

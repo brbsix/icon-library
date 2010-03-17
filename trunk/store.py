@@ -18,6 +18,7 @@ class InfoModel:
 
 
     def contexts_model_set_info(self, Theme):
+        self.theme = Theme
         from standards import StandardIconNamingSpec
         spec = StandardIconNamingSpec()
 
@@ -57,8 +58,8 @@ class InfoModel:
                 if not inherited:
                     if not notes: notes = ""
                     notes += "\nInherited from %s" % inherited_name
-                if standard:
-                    ico = "<b>%s</b>" % ico
+                #if standard:
+                #    ico = "<b>%s</b>" % ico
 
                 gtk.gdk.threads_enter()
                 self.icon_rows_model.append( (ico, context, pb0, pb1, pb2, notes) )
