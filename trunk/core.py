@@ -19,7 +19,7 @@ import threading
 gtk.gdk.threads_init()
 
 
-# print colours
+# print colors
 WARNING = "\033[93m"
 FAIL = "\033[91m"
 ENDC = "\033[0m"
@@ -415,7 +415,7 @@ class IconLibraryGui:
             self.status_hbox
             )
 
-        self.setup_color_swatches(Controller, self.colour_swatches_hbox)
+        self.setup_color_swatches(Controller, self.color_swatches_hbox)
         return
 
     def setup_top_toolbar(self, Controller, Theme, vbox):
@@ -529,11 +529,11 @@ class IconLibraryGui:
         btm_hbox.set_homogeneous(True)
 
         self.status_hbox = gtk.HBox()
-        self.colour_swatches_hbox = gtk.HBox()
+        self.color_swatches_hbox = gtk.HBox()
 
         btm_hbox.add(gtk.HBox())
         btm_hbox.add(self.status_hbox)
-        btm_hbox.add(self.colour_swatches_hbox)
+        btm_hbox.add(self.color_swatches_hbox)
 
         vbox.pack_end(btm_hbox, False)
         return
