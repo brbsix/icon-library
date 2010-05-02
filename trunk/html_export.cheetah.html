@@ -1,0 +1,54 @@
+<html>
+<head>
+  <style type="text/css" media="screen">
+  /* <![CDATA[ */
+    body{font-size:77%;}
+    th{text-align:left; padding-right:1em}
+    td{font-size:.78em}
+    td.icon{padding:10px}
+    td.context{font-size:.68em; font-style:italic }
+    td.notes{color:#999; font-size:.68em}
+  /* ]]> */
+  </style>
+  
+</head>
+<body>
+<h1>$theme_name</h1>
+<table>
+<tr>
+  <th>Name</th>
+  <th>Context</th>
+  <th>Graphics</th>
+  <th>Notes</th>
+</tr>
+#for $icon in $icons
+  
+  <tr>
+    <td class="name">$icon[0]</td>
+    <td class="context">$icon[1]</td>
+    <td class="icon">
+      #if $theme.lookup_icon($icon[0],16,0)
+        <img src="$theme.lookup_icon($icon[0],16,0).get_filename()" width="16"/>
+      #end if
+    </td>
+    <td class="icon">  
+      #if $theme.lookup_icon($icon[0],22,0)
+        <img src="$theme.lookup_icon($icon[0],22,0).get_filename()" width="22"/>
+      #end if
+    </td>
+    <td class="icon">  
+      #if $theme.lookup_icon($icon[0],32,0)
+        <img src="$theme.lookup_icon($icon[0],32,0).get_filename()" width="32"/>
+      #end if
+    </td>
+    <td class="icon">  
+      #if $theme.lookup_icon($icon[0],64,0)
+        <img src="$theme.lookup_icon($icon[0],128,0).get_filename()" width="64"/>
+      #end if
+    </td>
+    <td class="notes">$icon[5]</td>
+  </tr>
+#end for
+</table>
+</body>
+</html>
