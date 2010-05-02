@@ -2,7 +2,7 @@
 # Filename: icon-library.py
 
 __licence__ = "LGPLv3"
-__copyright__ = "Matthew McGowan, 2009"
+__copyright__ = "Matthew McGowan, 2010"
 __author__ = "Matthew McGowan <matthew.joseph.mcgowan@gmail.com>"
 
 

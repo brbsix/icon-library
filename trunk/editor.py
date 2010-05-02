@@ -14,6 +14,11 @@ import gtk
 from custom_widgets import IconPreview
 
 
+# pi constants
+M_PI = 3.1415926535897931
+PI_OVER_180 = 0.017453292519943295
+
+
 class IconSetEditorDialog:
     def __init__(self, root):
         self.dialog = gtk.Dialog(
@@ -60,10 +65,31 @@ class IconSetEditorDialog:
             if Icon: iconset += Icon,
 
         if len(sizes) != len(msizes):
+            def bg(note, event):
+                cr = note.window.cairo_create()
+                a = note.allocation
+                cr.rectangle(a)
+                cr.clip()
+                rounded_rectangle(cr, a.x+0.5, a.y+0.5, a.width-1, a.height-1, 3)
+                cr.set_source_rgb(*floats_from_string('#FFE2D6'))
+                cr.fill_preserve()
+                cr.set_source_rgb(*floats_from_string('#FF743B'))
+                cr.set_line_width(1)
+                cr.stroke()
+                del cr
+                return
+
             note = gtk.Label()
             note.set_line_wrap(True)
-            note.set_markup("<small><b>Note</b>: There is a mismatch between the reported and discoverable sizes for this icon-set.\nSizes discovered: %s\nSizes reported by %s: %s</small>" % (msizes, Theme.info[1], sizes))
-            self.dialog.vbox.pack_start(note, False, padding=3)
+            note.set_markup("<small>The IconTheme incorrectly reports available icon sizes\nSizes discovered: %s\nSizes reported by %s: %s</small>" % (msizes, Theme.info[1], sizes))
+
+            note_align = gtk.Alignment(0.0, 0.5)
+            note_align.set_border_width(5)
+            note_align.add(note)
+
+            note_align.connect('expose-event', bg)
+
+            self.dialog.vbox.pack_start(note_align, False, padding=3)
 
         self.notebook.grab_focus()
         self.dialog.vbox.show_all()
@@ -172,19 +198,17 @@ class IconSetEditorDialog:
         browser.set_image(gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU))
         browser.set_tooltip_text("Open containing folder")
 
-        gimper = gtk.Button()
-        gimper.set_image(gtk.image_new_from_icon_name("gimp", gtk.ICON_SIZE_MENU))
-        gimper.set_tooltip_text("Open with GIMP image editor")
+        gimper = gtk.Button('Open with...')
 
         browser.connect(
             "clicked",
-            self.gnome_open_cb,
+            self.open_folder_cb,
             path
             )
 
         gimper.connect(
             "clicked",
-            self.open_with_gimp_cb,
+            self.open_file_cb,
             path
             )
 
@@ -203,15 +227,13 @@ class IconSetEditorDialog:
         self.notebook.set_tab_label_text(page, tab_label)
         return Icon
 
-    def gnome_open_cb(self, button, path):
+    def open_folder_cb(self, button, path):
         folder = os.path.split(path)[0]
-        print "Opening", folder
         os.system("gnome-open %s &" % folder)
         return
 
-    def open_with_gimp_cb(self, button, path):
-        print "Gimping", path
-        os.system("gimp %s &" % path)
+    def open_file_cb(self, button, path):
+        os.system("gnome-open %s &" % path)
         return
 
 
@@ -320,3 +342,18 @@ class IconInfo:
 
     def get_preview(self):
         return self.preview
+
+
+def floats_from_string(spec):
+    color = gtk.gdk.color_parse(spec)
+    return color.red_float, color.green_float, color.blue_float
+
+def rounded_rectangle(cr, x, y, w, h, r):
+        cr.new_sub_path()
+        cr.translate(x, y)
+        cr.arc(r, r, r, M_PI, 270*PI_OVER_180)
+        cr.arc(w-r, r, r, 270*PI_OVER_180, 0)
+        cr.arc(w-r, h-r, r, 0, 90*PI_OVER_180)
+        cr.arc(r, h-r, r, 90*PI_OVER_180, M_PI)
+        cr.close_path()
+        return
