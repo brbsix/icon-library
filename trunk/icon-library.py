@@ -11,7 +11,7 @@ import core
 
 if __name__ == '__main__':
     print "\nIcon Library"
-    print "Matthew McGowan, 2009\n"
+    print "Matthew McGowan, 2008-2010\n"
     app = core.IconLibraryController()
     app.run()
 
