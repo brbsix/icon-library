@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # Filename: dialogs.py
 
-__licence__ = "LGPLv3"
-__copyright__ = "Matthew McGowan, 2009"
-__author__ = "Matthew McGowan <matthew.joseph.mcgowan@gmail.com>"
 
-
-import pygtk
-pygtk.require("2.0")
-
-import os
 import gtk
+import os
+import pygtk
+
+__license__ = 'LGPLv3'
+__copyright__ = 'Matthew McGowan, 2009'
+__author__ = 'Matthew McGowan <matthew.joseph.mcgowan@gmail.com>'
+
+pygtk.require('2.0')
 
 
 class IconSetPopupDialog:
@@ -18,21 +18,21 @@ class IconSetPopupDialog:
         popup = gtk.Menu()
 
         edit_action = gtk.Action(
-            "Edit",
-            "Icon set properties",
+            'Edit',
+            'Icon set properties',
             None,
             gtk.STOCK_EDIT
             )
 
         jump_action = gtk.Action(
-            "JumpTo",
-            "Jump to target icon",
+            'JumpTo',
+            'Jump to target icon',
             None,
             gtk.STOCK_JUMP_TO
             )
 
-        popup.add( edit_action.create_menu_item() )
-        popup.add( jump_action.create_menu_item() )
+        popup.add(edit_action.create_menu_item())
+        popup.add(jump_action.create_menu_item())
         return popup, (edit_action, jump_action)
 
     def run(self, Controller, popup, menuitems, treeview, event):
@@ -51,13 +51,13 @@ class IconSetPopupDialog:
                 jump_action.set_sensitive(False)
 
             edit_action.connect(
-                "activate",
+                'activate',
                 Controller.edit_iconset_cb,
                 iconset_data
                 )
 
             jump_action.connect(
-                "activate",
+                'activate',
                 Controller.jump_to_icon_cb,
                 iconset_data
                 )
@@ -69,39 +69,42 @@ class IconSetPopupDialog:
 class ThemeChangeDialog:
     def __init__(self, root):
         self.dialog = gtk.Dialog(
-            "Change Icon Theme",
+            'Change Icon Theme',
             root,
             gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-            (gtk.STOCK_CANCEL, gtk.RESPONSE_REJECT, gtk.STOCK_OK, gtk.RESPONSE_ACCEPT)
+            (gtk.STOCK_CANCEL,
+             gtk.RESPONSE_REJECT,
+             gtk.STOCK_OK,
+             gtk.RESPONSE_ACCEPT)
             )
         self.dialog.set_size_request(300, 192)
         self.dialog.set_has_separator(False)
         return
 
     def run(self, Theme):
-        # list all discoverable themes in a combo box 
-        theme_sel = gtk.combo_box_new_text() 
-        theme_sel.set_tooltip_text("Select an icon theme")
+        # list all discoverable themes in a combo box
+        theme_sel = gtk.combo_box_new_text()
+        theme_sel.set_tooltip_text('Select an icon theme')
 
         themes = Theme.list_themes()
-        i, active = 0, 0 
-        for theme, name, p in themes: 
-            name = name or "Unnamed" 
+        i, active = 0, 0
+        for theme, name, p in themes:
+            name = name or 'Unnamed'
             if theme == Theme.default:
-                name += " (in use)"
+                name += ' (in use)'
                 active = i
             theme_sel.append_text(name)
             i += 1
 
         theme_sel.set_active(active)
-        theme_sel.set_tooltip_text("Select an icon theme") 
+        theme_sel.set_tooltip_text('Select an icon theme')
 
-        header = gtk.Label() 
+        header = gtk.Label()
         header.set_justify(gtk.JUSTIFY_CENTER)
-        header.set_text("Select a new icon theme to view") 
+        header.set_text('Select a new icon theme to view')
 
         custom = gtk.Button()
-        custom.set_tooltip_text("Import an icon theme")
+        custom.set_tooltip_text('Import an icon theme')
         custom.set_size_request(33, -1)
 
         custom.set_image(
@@ -127,7 +130,7 @@ class ThemeChangeDialog:
         dialog.vbox.add(greeter_main_align)
 
         custom.connect(
-            "clicked",
+            'clicked',
             self.custom_cb,
             Theme,
             theme_sel
@@ -143,7 +146,7 @@ class ThemeChangeDialog:
             theme_sel.set_sensitive(False)
             custom.set_sensitive(False)
 
-            s = "Loading <b>%s</b>\nThis may take several moments" % new_theme[1]
+            s = 'Loading <b>%s</b>\nThis may take several moments' % new_theme[1]
             header.set_markup(s)
 
             progress = gtk.ProgressBar()
@@ -157,7 +160,7 @@ class ThemeChangeDialog:
 
     def custom_cb(self, button, Theme, theme_sel):
         chooser = gtk.FileChooserDialog(
-            "Import an icon theme",
+            'Import an icon theme',
             action=gtk.FILE_CHOOSER_ACTION_OPEN,
             buttons=(
                 gtk.STOCK_CANCEL,
@@ -168,13 +171,13 @@ class ThemeChangeDialog:
             )
 
         fltr = gtk.FileFilter()
-        fltr.set_name("Theme Index")
-        fltr.add_pattern("index.theme")
+        fltr.set_name('Theme Index')
+        fltr.add_pattern('index.theme')
         chooser.add_filter(fltr)
 
         fltr = gtk.FileFilter()
-        fltr.set_name("All files")
-        fltr.add_pattern("*")
+        fltr.set_name('All files')
+        fltr.add_pattern('*')
         chooser.add_filter(fltr)
 
         response = chooser.run()
@@ -188,10 +191,10 @@ class ThemeChangeDialog:
                 index_path
                 )
 
-            theme_sel.append_text( theme[1] )
-            theme_sel.set_active( len(Theme.all_themes) )
+            theme_sel.append_text(theme[1])
+            theme_sel.set_active(len(Theme.all_themes))
             Theme.all_themes.append(theme)
-            Theme.prepend_search_path( os.path.split(theme_root)[0] )
+            Theme.prepend_search_path(os.path.split(theme_root)[0])
 
         chooser.destroy()
         return

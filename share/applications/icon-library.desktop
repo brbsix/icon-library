@@ -1,0 +1,10 @@
+[Desktop Entry]
+Icon=applications-interfacedesign
+Name=Icon Library
+Comment=Inspect installed icon themes
+Exec=icon-library
+Terminal=false
+Type=Application
+Categories=System;Utility;
+Keywords=Configuration;Freedesktop;Icon;Icons;Theme;Themes;
+StartupNotify=false
