@@ -1,9 +1,14 @@
+#!/usr/bin/env python
+# Filename: standards.py
+
+
 import gtk
 import threading
 
+
 class InfoModel:
     def __init__(self):
-        
+
         self.contexts_model = gtk.ListStore(str)
 
         self.icon_rows_model = gtk.ListStore(
@@ -16,16 +21,15 @@ class InfoModel:
             )
         return
 
-
     def contexts_model_set_info(self, Theme):
         self.theme = Theme
         from standards import StandardIconNamingSpec
         spec = StandardIconNamingSpec()
 
         self.contexts_model.clear()
-        self.contexts_model.append( ["All Contexts"] )
+        self.contexts_model.append(['All Contexts'])
 
-        ctxs = list( Theme.list_contexts() )
+        ctxs = list(Theme.list_contexts())
         ctxs.sort()
         for ctx in ctxs:
             comments = spec.get_context_comment(ctx)
@@ -49,19 +53,21 @@ class InfoModel:
 
                 notes = None
                 if key != ico:
-                    notes = "Symlink"
+                    notes = 'Symlink'
                 if not scalable:
                     if not notes:
-                        notes = "Fixed Only"
+                        notes = 'Fixed Only'
                     else:
-                        notes += ", Fixed Only"
+                        notes += ', Fixed Only'
                 if not inherited:
-                    if not notes: notes = ""
-                    notes += "\nInherited from %s" % inherited_name
-                #if standard:
-                #    ico = "<b>%s</b>" % ico
+                    if not notes:
+                        notes = ""
+                    notes += '\nInherited from %s' % inherited_name
+                # if standard:
+                #     ico = '<b>%s</b>' % ico
 
                 gtk.gdk.threads_enter()
-                self.icon_rows_model.append( (ico, context, pb0, pb1, pb2, notes) )
+                self.icon_rows_model.append((ico, context, pb0,
+                                             pb1, pb2, notes))
                 gtk.gdk.threads_leave()
         return

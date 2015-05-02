@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 # Filename: editor.py
 
-__licence__ = "LGPLv3"
-__copyright__ = "Matthew McGowan, 2009"
-__author__ = "Matthew McGowan <matthew.joseph.mcgowan@gmail.com>"
 
-
-import pygtk
-pygtk.require("2.0")
-
-import os
 import gtk
+import os
+import pygtk
+
 from custom_widgets import IconPreview
 
+__license__ = 'LGPLv3'
+__copyright__ = 'Matthew McGowan, 2009'
+__author__ = 'Matthew McGowan <matthew.joseph.mcgowan@gmail.com>'
+
+pygtk.require('2.0')
 
 # pi constants
 M_PI = 3.1415926535897931
@@ -22,7 +22,7 @@ PI_OVER_180 = 0.017453292519943295
 class IconSetEditorDialog:
     def __init__(self, root):
         self.dialog = gtk.Dialog(
-            "Icon Set Properties",
+            'Icon Set Properties',
             root,
             gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
             (gtk.STOCK_CLOSE, gtk.RESPONSE_REJECT)
@@ -48,7 +48,9 @@ class IconSetEditorDialog:
         sizes, msizes = self.get_sizes(Theme, name)
 
         self.header.set_markup(
-            "<b>%s</b>\n<span size=\"small\">%s - %s</span>" % (name, Theme.info[1], context)
+            '<b>%s</b>\n<span size="small">%s - %s</span>' % (name,
+                                                              Theme.info[1],
+                                                              context)
             )
         self.header.set_justify(gtk.JUSTIFY_CENTER)
 
@@ -56,13 +58,9 @@ class IconSetEditorDialog:
         l_color = self.dialog.get_style().text[gtk.STATE_INSENSITIVE].to_string()
         for size in msizes:
             Icon = self.make_and_append_page(
-                Theme,
-                context,
-                name,
-                size,
-                l_color
-                )
-            if Icon: iconset += Icon,
+                Theme, context, name, size, l_color)
+            if Icon:
+                iconset += Icon,
 
         if len(sizes) != len(msizes):
             def bg(note, event):
@@ -70,7 +68,8 @@ class IconSetEditorDialog:
                 a = note.allocation
                 cr.rectangle(a)
                 cr.clip()
-                rounded_rectangle(cr, a.x+0.5, a.y+0.5, a.width-1, a.height-1, 3)
+                rounded_rectangle(
+                    cr, a.x + 0.5, a.y + 0.5, a.width - 1, a.height - 1, 3)
                 cr.set_source_rgb(*floats_from_string('#FFE2D6'))
                 cr.fill_preserve()
                 cr.set_source_rgb(*floats_from_string('#FF743B'))
@@ -81,7 +80,7 @@ class IconSetEditorDialog:
 
             note = gtk.Label()
             note.set_line_wrap(True)
-            note.set_markup("<small>The IconTheme incorrectly reports available icon sizes\nSizes discovered: %s\nSizes reported by %s: %s</small>" % (msizes, Theme.info[1], sizes))
+            note.set_markup('<small>The IconTheme incorrectly reports available icon sizes\nSizes discovered: %s\nSizes reported by %s: %s</small>' % (msizes, Theme.info[1], sizes))
 
             note_align = gtk.Alignment(0.0, 0.5)
             note_align.set_border_width(5)
@@ -165,17 +164,19 @@ class IconSetEditorDialog:
             size = int(size.split('x')[0])
             return size
         except:
-            print 'Size not parsable:', size
+            print('Size not parsable:', size)
         return size
 
     def make_and_append_page(self, Theme, context, name, size, l_color):
         if isinstance(size, int):
             path = Theme.lookup_icon(name, size, 0).get_filename()
             pixbuf = Theme.load_icon(name, size, 0)
-            tab_label = "%sx%s" % (size, size)
+            tab_label = '%sx%s' % (size, size)
         else:
-            path = Theme.lookup_icon(name, 64, gtk.ICON_LOOKUP_FORCE_SVG).get_filename()
-            pixbuf = Theme.load_icon(name, 64, gtk.ICON_LOOKUP_FORCE_SVG)
+            path = Theme.lookup_icon(
+                name, 64, gtk.ICON_LOOKUP_FORCE_SVG).get_filename()
+            pixbuf = Theme.load_icon(
+                name, 64, gtk.ICON_LOOKUP_FORCE_SVG)
             tab_label = size
 
         Icon = IconInfo(l_color)
@@ -195,19 +196,20 @@ class IconSetEditorDialog:
         icon_hbox.pack_start(preview, padding=5)
 
         browser = gtk.Button()
-        browser.set_image(gtk.image_new_from_stock(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_MENU))
-        browser.set_tooltip_text("Open containing folder")
+        browser.set_image(gtk.image_new_from_stock(gtk.STOCK_DIRECTORY,
+                                                   gtk.ICON_SIZE_MENU))
+        browser.set_tooltip_text('Open containing folder')
 
         gimper = gtk.Button('Open with...')
 
         browser.connect(
-            "clicked",
+            'clicked',
             self.open_folder_cb,
             path
             )
 
         gimper.connect(
-            "clicked",
+            'clicked',
             self.open_file_cb,
             path
             )
@@ -229,11 +231,11 @@ class IconSetEditorDialog:
 
     def open_folder_cb(self, button, path):
         folder = os.path.split(path)[0]
-        os.system("gnome-open %s &" % folder)
+        os.system('gnome-open %s &' % folder)
         return
 
     def open_file_cb(self, button, path):
-        os.system("gnome-open %s &" % path)
+        os.system('gnome-open %s &' % path)
         return
 
 
@@ -254,12 +256,12 @@ class IconInfo:
         self.table = gtk.Table(rows=4, columns=2)
 
         self.labels = {
-            "Name":(0, 1, l_name, r_name),
-            "Path":(1, 2, l_path, r_path),
-            "Type":(2, 3, l_type, r_type),
-            "Target":(3, 4, l_targ, r_targ)
+            'Name': (0, 1, l_name, r_name),
+            'Path': (1, 2, l_path, r_path),
+            'Type': (2, 3, l_type, r_type),
+            'Target': (3, 4, l_targ, r_targ)
             }
-            
+
         self.setup_layout(
             self.table,
             self.labels,
@@ -273,7 +275,7 @@ class IconInfo:
             l_label.set_size_request(48, -1)
             l_label.set_alignment(1, 0.5)
             l_label.set_markup(
-                "<span foreground=\"%s\"><b>%s</b></span>" % (l_color, k)
+                '<span foreground="%s"><b>%s</b></span>' % (l_color, k)
                 )
 
             r_label.set_size_request(225, -1)
@@ -309,33 +311,33 @@ class IconInfo:
             p, n, t, targ = self.format_real_info(path)
 
         labels = self.labels
-        labels["Name"][3].set_text(n)
-        labels["Path"][3].set_text(p)
-        labels["Type"][3].set_text(t)
-        labels["Target"][3].set_text(targ)
+        labels['Name'][3].set_text(n)
+        labels['Path'][3].set_text(p)
+        labels['Type'][3].set_text(t)
+        labels['Target'][3].set_text(targ)
         return
 
     def format_link_info(self, path):
-        p,n = os.path.split(path)
-        t = "%s " % os.path.splitext(n)[1][1:].upper()
-        t += "(Linked to %s)" % os.path.splitext( os.path.realpath(path) )[1][1:].upper()
+        p, n = os.path.split(path)
+        t = '%s ' % os.path.splitext(n)[1][1:].upper()
+        t += '(Linked to %s)' % os.path.splitext(os.path.realpath(path))[1][1:].upper()
         return p, n, t, os.path.realpath(path)
 
     def format_real_info(self, path):
         p, n = os.path.split(path)
-        t = "%s" % os.path.splitext(n)[1][1:].upper()
-        return p, n, t, "n/a"
+        t = '%s' % os.path.splitext(n)[1][1:].upper()
+        return p, n, t, 'n/a'
 
     def format_unwritten_link_info(self, src, dst):
-        p,n = os.path.split(dst)
-        t = "%s " % os.path.splitext(n)[1][1:].upper()
-        t += "(Linked to %s) [Pending write]" % os.path.splitext(src)[1][1:].upper()
+        p, n = os.path.split(dst)
+        t = '%s ' % os.path.splitext(n)[1][1:].upper()
+        t += '(Linked to %s) [Pending write]' % os.path.splitext(src)[1][1:].upper()
         return p, n, t, src
 
     def format_unwritten_real_info(self, dst):
         p, n = os.path.split(dst)
-        t = "%s [Pending write]" % os.path.splitext(n)[1][1:].upper()
-        return p, n, t, "n/a"
+        t = '%s [Pending write]' % os.path.splitext(n)[1][1:].upper()
+        return p, n, t, 'n/a'
 
     def get_table(self):
         return self.table
@@ -348,12 +350,13 @@ def floats_from_string(spec):
     color = gtk.gdk.color_parse(spec)
     return color.red_float, color.green_float, color.blue_float
 
+
 def rounded_rectangle(cr, x, y, w, h, r):
-        cr.new_sub_path()
-        cr.translate(x, y)
-        cr.arc(r, r, r, M_PI, 270*PI_OVER_180)
-        cr.arc(w-r, r, r, 270*PI_OVER_180, 0)
-        cr.arc(w-r, h-r, r, 0, 90*PI_OVER_180)
-        cr.arc(r, h-r, r, 90*PI_OVER_180, M_PI)
-        cr.close_path()
-        return
+    cr.new_sub_path()
+    cr.translate(x, y)
+    cr.arc(r, r, r, M_PI, 270 * PI_OVER_180)
+    cr.arc(w - r, r, r, 270 * PI_OVER_180, 0)
+    cr.arc(w - r, h - r, r, 0, 90 * PI_OVER_180)
+    cr.arc(r, h - r, r, 90 * PI_OVER_180, M_PI)
+    cr.close_path()
+    return
