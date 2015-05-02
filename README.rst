@@ -24,6 +24,7 @@ Manual Install
 To manually build and install the Python package, perform the following:
 
 * clone the repository (or download the tarball at https://github.com/brbsix/icon-library/archive/master.zip)
+
 ::
 
     git clone 'https://github.com/brbsix/icon-library.git'
