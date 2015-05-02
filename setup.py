@@ -6,7 +6,7 @@ from iconlibrary.core import __author__, __license__
 
 setup(
     name='icon-library',
-    version='0.0.1',
+    version='0.0.2',
     author=' '.join(__author__.split()[:-1]),
     author_email=__author__.split()[-1].strip('<>'),
     description='Inspect installed icon themes.',
